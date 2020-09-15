@@ -248,7 +248,7 @@ aggregby <- function( rain.data, proc_meth_par){
   return(out)
 }
 
-# aggregates time series to a coarser time step, but preserves the original time steps as zeros --------------------------
+# aggregates time series to a coarser time step but disaggregates it back afterwards using linear interpolation --------------------------
 aggregbykeepLin <- function( rain.data, proc_meth_par){
   
   by_step <- proc_meth_par['min']
@@ -276,7 +276,7 @@ aggregbykeepLin <- function( rain.data, proc_meth_par){
   return(out)
 }
 
-# aggregates time series to a coarser time step, but preserves the original time steps as zeros --------------------------
+# aggregates time series to a coarser time step but disaggregates it back afterwards using a constant value --------------------------
 aggregbykeepCon <- function( rain.data, proc_meth_par){
   
   by_step <- proc_meth_par['min']
