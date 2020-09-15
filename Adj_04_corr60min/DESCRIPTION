@@ -1,0 +1,22 @@
+Package: Adj.04.corr60min
+Title: Adj.04
+Version: 0.0.0.9000
+Authors@R: person("Jaroslav", "Pastorek", email = "first.last@example.com", role = c("aut", "cre"))
+Description: 
+    based on "Adj.03.corr15min"
+    New feature: Corrected the selection of 60 minute chunks of CML data - never skip the first iteration
+Depends: R (>= 3.2.2)
+License: What license is it under?
+LazyData: true
+Imports:
+    kimisc,
+    DiceDesign,
+    sensitivity,
+    GenSA,
+    adaptMCMC,
+    MHadaptive,
+    truncnorm,
+    zoo,
+    gsl,
+    rootSolve
+
