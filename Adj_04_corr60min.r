@@ -132,13 +132,17 @@ dt <- difftime( remRGs$time[2], remRGs$time[1] )
 for ( i_ev in unique(remRGs$id) ) {  # for each event
   
   times_ev <- remRGs$time[remRGs$id %in% i_ev]
+  first <- TRUE
   for ( i_ord in 1:length(times_ev) ) {  # for each timestep ~~ chunk of length N
     i_i <- rev(times_ev) [i_ord]
     i_i_char <- as.character( rev(times_ev) ) [i_ord]
     
     i_iminusAlmostN <- i_i - (N-1)*dt
     
-    if ( i_iminusAlmostN < min(times_ev) ) {break}
+    if ( !first ) {
+      if ( i_iminusAlmostN < min(times_ev) ) {break}  
+    }
+    first <- FALSE
     
     i_itoAlmostN <- seq( i_i, i_iminusAlmostN, -dt )
     remRGs_chunk <- remRGs[ remRGs$time %in% i_itoAlmostN , ]
@@ -235,6 +239,7 @@ dt <- difftime( remRGs$time[2], remRGs$time[1] )
 for ( i_ev in unique(remRGs$id) ) {  # for each event
   
   times_ev <- remRGs$time[remRGs$id %in% i_ev]
+  first <- TRUE
   for ( i_ord in 1:length(times_ev) ) {  # for each reference timestep ~~ chunk of length N
     i_i <- rev(times_ev) [i_ord]
     i_i_char <- as.character( rev(times_ev) ) [i_ord]
@@ -242,7 +247,10 @@ for ( i_ev in unique(remRGs$id) ) {  # for each event
     i_iminusN <- i_i - (N)*dt
     i_iminusAlmostN <- i_i - (N-1)*dt
     
-    if ( i_iminusAlmostN < min(times_ev) ) {break}
+    if ( !first ) {
+      if ( i_iminusAlmostN < min(times_ev) ) {break}  
+    }
+    first <- FALSE
     
     i_itoN <- seq( i_i, i_iminusN, -dt )
     times_CML_chunk <- CML_base$time[ which( ( CML_base$time <= max(i_itoN) ) * ( CML_base$time > min(i_itoN) ) == 1 ) ]
