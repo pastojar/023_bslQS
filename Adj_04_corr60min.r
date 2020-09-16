@@ -44,13 +44,6 @@ flow.data.proc <- flow.data[,c("time","id", "MP1", "sd_Q")]
 
 
 
-#######################################
-## selects the discharge data to work with
-## and reads the data for desired time periods
-flow.data      <- read_select_data(rain_data_name = "Q_uncert" , periods = periods )
-flow.data.proc <- flow.data[,c("time","id", "MP1", "sd_Q")]
-
-
 
 #######################################
 ## overview of initial attenuation or rainfall data to work with
