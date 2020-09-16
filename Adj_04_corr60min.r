@@ -1,5 +1,5 @@
 ######################################
-## J. Pastorek, APR 2020
+## J. Pastorek, SEP 2020
 ######################################
 
 
@@ -14,7 +14,7 @@ pack.dir <- substr(system.file("extdata", "gawk.exe", package = Package), 1,    
 ## ! Decide here about the statistics files (the periods used)  (it defines the rainfall-runoff events)
 uni.data <- read.stats(FG.ov.path  = system.file("extdata", "flow_stats_Q2min_(12_tpl+locRGs_smooth+remRGs)+MP1_H2min.csv", package = Package),
                        RG.ov.path  = system.file("extdata", "rainfall_stats_locRGs_smooth_(12_tpl+locRGs_smooth+remRGs)+MP1_H2min_2mm_short.csv", package = Package)
-                      )
+)
 uni.data[["CML_meta"]] <- read.csv( system.file( "extdata", "meta_25xCML_complet.csv", package = Package ), sep = ";", stringsAsFactors = F )
 
 
@@ -25,15 +25,23 @@ all.events  <-  ( 1 : length(uni.data$RG.overview[,1]) )
 
 bad.events  <-  c( c(2:9, 84:88 ), (62), (63:69))                # damaged FG data  || too long  ||  winter  
 NA_for_CML  <-  c( 1, 29, 90, 96, 97,     10:18, 37, 47, 56 )   # 10:18, 37, 47, 56 could be simulated, but only with too few CMLs      
-NA_for_locRGs <- c( c(19:22, 82:83) , c(75, 79, 93) )           #  NA loc RGs  ||  weird locRGs
+NA_for_locRGs <- c( c(19:22, 82:83) , c(75, 79, 93) , c(80:83) )           #  NA loc RGs  ||  weird locRGs || RG1 stuffed by insect 
 
 good.events <-  setdiff(all.events, union(bad.events, union(NA_for_locRGs, NA_for_CML)) )
 
 periods     <-  uni.data$RG.overview[ good.events,  ] [, c("st", "en") ]
 
-set.seed(1); which_events <- rbinom(n = 53, size = 1, prob = 0.5)
+set.seed(1); which_events <- rbinom(n = length(good.events) , size = 1, prob = 0.5)
 eventIDsCa    <- as.character( periods$st[ !which_events ] )                     # desired events for CALIBRATION  
 eventIDsPre   <- setdiff( as.character( periods$st ) , eventIDsCa )   # desired events for PREDICTION
+
+
+#######################################
+## selects the discharge data to work with
+## and reads the data for desired time periods
+flow.data      <- read_select_data(rain_data_name = "Q_uncert" , periods = periods )
+flow.data.proc <- flow.data[,c("time","id", "MP1", "sd_Q")]
+
 
 
 #######################################
