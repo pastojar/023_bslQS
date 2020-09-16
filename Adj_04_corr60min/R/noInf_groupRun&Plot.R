@@ -263,10 +263,7 @@ sup.group.plot.noInf <- function(mod.scens.to.plot, name, sup.group.res, sup.rai
   if ( length(mod.scens.to.plot) > 4) { stop("Too much data sets.") }
   
   if ( length( grep("ThPol3", mod.scens.to.plot) ) > 0 ) { 
-    mod.scens.to.plot_rain  <- strsplit( mod.scens.to.plot[ grep("ThPol3", mod.scens.to.plot) ], "__" )[[1]][1]
-    hlp2 <- paste( mod.scens.to.plot_rain , c("RG1", "RG2", "RG3"), sep="_" ) 
-    mod.scens.to.plot_rain  <- mod.scens.to.plot[ - grep("ThPol3", mod.scens.to.plot) ]
-    mod.scens.to.plot_rain  <- c(mod.scens.to.plot_rain, hlp2)      
+    mod.scens.to.plot_rain  <- paste(  c("RG1", "RG2", "RG3"), mod.scens.to.plot , sep="_-_" ) 
   } else {
     mod.scens.to.plot_rain <- mod.scens.to.plot
   }
@@ -371,7 +368,7 @@ sup.group.plot.noInf <- function(mod.scens.to.plot, name, sup.group.res, sup.rai
       Rain <- Rain.all[ c("time", "id", i_datasets_rain) ]
       Rain_to_print <- Rain[ , !(names(Rain) %in% c("time", "id")) ]
       
-      if ( grepl( "_RG", i_datasets_rain ) ) {
+      if ( grepl( "ThPol3", i_datasets_rain ) ) {
         Qmod <- Q.all[ , grep( "ThPol3", names(Q.all) ) ]
       } else {
         Qmod <- Q.all[ , i_datasets_rain ]

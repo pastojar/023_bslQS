@@ -1014,6 +1014,19 @@ ThPol3 <- function(rain.data, proc_meth_par) {
   return(out)
 }
 
+# for local RGs - the same as ThPl3, only a different name --------------------------
+keep3 <- function(rain.data, proc_meth_par) {
+  
+  out      <- data.frame(time = rain.data$time, id = rain.data$id)
+  out$RG1  <- rain.data$RG1_PS
+  out$RG2  <- apply(rain.data[ , c("RG2_SC", "RG5_SC") ], 1, mean, na.rm = T  ) # mean of 2 RGs at Sport Centrum
+  out$RG3  <- apply(rain.data[ , c("RG3_GP", "RG6_GP") ], 1, mean, na.rm = T  ) # mean of 2 RGs at Green Park
+  
+  out[ c("RG1", "RG2", "RG3") ] <- round( out[ c("RG1", "RG2", "RG3") ], digits = 3 )
+  
+  return(out)
+}
+
 
 ########################################################################################################################
 
