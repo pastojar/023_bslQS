@@ -244,9 +244,13 @@ quscore = function(x, conf=0.1) {
 #  total discharged volume
 Vtot <- function(Qdata, timestep) {
   Vtot <- 0
+  
+  uniq <- unique(diff(timestep))
+  timestep_mode <- uniq[which.max(tabulate(match(diff(timestep), uniq)))] # determines the mode
+  
   for (i in 1 : (length(timestep)-1) ) {
-    if ( timestep[i+1] > timestep[i] ) {  # to avoid calculating between various events
-      Vtot <-  Vtot + ( mean(Qdata[i+1], Qdata[i]) * (timestep[i+1] - timestep[i])*3600 )   #    l/s * s = l  
+    if ( (timestep[i+1] - timestep[i]) == timestep_mode ) {  # to avoid calculating between various events
+      Vtot <-  Vtot + ( mean(c(Qdata[i+1], Qdata[i])) * (timestep[i+1] - timestep[i])*3600 )   #    l/s * s = l  
     } else {
       next()
     }
@@ -266,7 +270,7 @@ Vpeak <- function(Qdata, timestep) {
   if (length(max.timestep) > 1) { max.timestep <- max.timestep[2] }
   V <- 0
   for (i in (max.timestep-1) : (max.timestep)) {
-    V <- V + ( mean(Qdata[i+1], Qdata[i]) * (timestep[i+1] - timestep[i])*3600 )   #    l/s * s = l
+    V <- V + ( mean(c(Qdata[i+1], Qdata[i])) * (timestep[i+1] - timestep[i])*3600 )   #    l/s * s = l
   }
   
   ret <- round(V, 3)
