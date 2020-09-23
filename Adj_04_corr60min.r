@@ -106,7 +106,7 @@ rain_data_proc_meth <- "AtoR"                     # specific attenuation to rain
 ## reads rainfall data for desired time periods,
 ## applies the selected processing method and deals with NAs,
 scens <- as.character(c())
-scens <- c( scens, "read remRGs_mean3__aggregby-min-60" )
+scens <- c( scens, "read remRGs_all__single-10--aggregby-min-60" )
 remRGs <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
 
 scens <- as.character(c())
@@ -155,7 +155,7 @@ for ( i_ev in unique(remRGs$id) ) {  # for each event
     CML_base_chunk  <- CML_base[ CML_base$time %in% times_CML_chunk,  ]
     
     # if zero reference, than zero parameters => zero QPE
-    if ( sum(remRGs_chunk$`remRGs_mean3_-_remRGs_mean3__aggregby-min-60`, na.rm = T) == 0 ) { next }  
+    if ( sum(remRGs_chunk[ , ! colnames( remRGs_chunk ) %in% c("id", "time") ], na.rm = T) == 0 ) { next }  
     
     for ( i_link in colnames( CML_base )[ ! colnames( CML_base ) %in% c("id", "time") ] ) {  # for each CML
       i_link <- strsplit( i_link, "_-_" )[[1]][1]
@@ -190,7 +190,7 @@ for ( i_ev in unique(remRGs$id) ) {  # for each event
             
             noNAs <-  !is.na(sup.rain.data[i_col]) 
             mod <- sup.rain.data[i_col] [ noNAs ] 
-            obs <- remRGs_chunk$remRGs_mean3 [ noNAs ]
+            obs <- remRGs_chunk[ , ! colnames( remRGs_chunk ) %in% c("id", "time") ] [ noNAs ]
             
             out_vec <- c( out_vec,  sqrt( mean( (mod-obs)^2 ) ) )
           }
