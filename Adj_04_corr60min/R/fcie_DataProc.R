@@ -252,8 +252,8 @@ aggregby <- function( rain.data, proc_meth_par){
 aggregbykeepLin <- function( rain.data, proc_meth_par){
   
   by_step <- proc_meth_par['min']
-  
-  hlp <- rain.data[ !(colnames(rain.data) %in% c("time", "id")) ]
+
+  hlp <- rain.data[ !(colnames(rain.data) %in% c("time", "id")) ]  
   
   t.num <- as.numeric( rain.data$time )
   t.num <- round( t.num / (by_step*60) ) * by_step*60
@@ -262,16 +262,36 @@ aggregbykeepLin <- function( rain.data, proc_meth_par){
   y_short <- aggregate( x = hlp , by = list(time = tim.agr), FUN = mean, na.rm = T )
   y_short <- y_short[ y_short$time %in% rain.data$time,  ]  # removes timesteps which are not included in the input data frame
   
+  
+  # adds zero observations at the starts and ends of the events
+  y_short_new <- y_short[0,]
+  
+  if ( length( which( diff(y_short$time, ) != by_step/60 ) ) > 0 ) {
+    event_ends <-  which( diff(y_short$time, ) != by_step/60 )
+  } else {
+    event_ends <- nrow(y_short)
+  }
+  
+  i_e_e_old <- 0
+  for ( i_e_e in event_ends ) {
+    y_short_new_ev <- rbind( y_short[(i_e_e_old +1), ] , 
+                             y_short[ (i_e_e_old +1) : i_e_e , ] , 
+                             y_short[i_e_e, ] )
+    
+    y_short_new_ev$time[ 1 ] <- y_short_new_ev$time[ 1 ] - unname(by_step)*60 
+    y_short_new_ev$time[ nrow(y_short_new_ev) ] <- y_short_new_ev$time[ nrow(y_short_new_ev) ] + unname(by_step)*60 
+    y_short_new_ev[ c(1, nrow(y_short_new_ev)), !(colnames( y_short_new_ev) %in% c("time", "id")) ] <- 0
+    
+    y_short_new <- rbind( y_short_new, y_short_new_ev )
+    
+    i_e_e_old <- i_e_e
+  }
+
   y <- rain.data
-  y[ !(colnames(y) %in% c("time", "id")) ] <- approx( x = y_short$time, y = y_short[, !(colnames(y_short) %in% c("time", "id")) ] , xout = y$time, method = "linear"  ) [["y"]]
+  y[ !(colnames(y) %in% c("time", "id")) ] <- approx( x = y_short_new$time, y = y_short_new[, !(colnames(y_short_new) %in% c("time", "id")) ] , xout = y$time, method = "linear"  ) [["y"]]
   y[ which( is.na(y[ !(colnames(y) %in% c("time", "id")) ]) ) ,  !(colnames(y) %in% c("time", "id")) ] <- 0
   
-  if ( ! is.null(rain.data$id)  ) {
-    id <- rain.data$id[ rain.data$time %in% y$time  ]
-    out <- cbind( id, y  )  
-  } else {
-    out <- y
-  }
+  out <- y
   
   return(out)
 }
@@ -290,16 +310,36 @@ aggregbykeepCon <- function( rain.data, proc_meth_par){
   y_short <- aggregate( x = hlp , by = list(time = tim.agr), FUN = mean, na.rm = T )
   y_short <- y_short[ y_short$time %in% rain.data$time,  ]  # removes timesteps which are not included in the input data frame
   
+  
+  # adds zero observations at the starts and ends of the events
+  y_short_new <- y_short[0,]
+  
+  if ( length( which( diff(y_short$time, ) != by_step/60 ) ) > 0 ) {
+    event_ends <-  which( diff(y_short$time, ) != by_step/60 )
+  } else {
+    event_ends <- nrow(y_short)
+  }
+  
+  i_e_e_old <- 0
+  for ( i_e_e in event_ends ) {
+    y_short_new_ev <- rbind( y_short[(i_e_e_old +1), ] , 
+                             y_short[ (i_e_e_old +1) : i_e_e , ] , 
+                             y_short[i_e_e, ] )
+    
+    y_short_new_ev$time[ 1 ] <- y_short_new_ev$time[ 1 ] - unname(by_step)*60 
+    y_short_new_ev$time[ nrow(y_short_new_ev) ] <- y_short_new_ev$time[ nrow(y_short_new_ev) ] + unname(by_step)*60 
+    y_short_new_ev[ c(1, nrow(y_short_new_ev)), !(colnames( y_short_new_ev) %in% c("time", "id")) ] <- 0
+    
+    y_short_new <- rbind( y_short_new, y_short_new_ev )
+    
+    i_e_e_old <- i_e_e
+  }
+  
   y <- rain.data
-  y[ !(colnames(y) %in% c("time", "id")) ] <- approx( x = y_short$time, y = y_short[, !(colnames(y_short) %in% c("time", "id")) ] , xout = y$time, method = "constant"  ) [["y"]]
+  y[ !(colnames(y) %in% c("time", "id")) ] <- approx( x = y_short_new$time, y = y_short_new[, !(colnames(y_short_new) %in% c("time", "id")) ] , xout = y$time, method = "constant"  ) [["y"]]
   y[ which( is.na(y[ !(colnames(y) %in% c("time", "id")) ]) ) ,  !(colnames(y) %in% c("time", "id")) ] <- 0
   
-  if ( ! is.null(rain.data$id)  ) {
-    id <- rain.data$id[ rain.data$time %in% y$time  ]
-    out <- cbind( id, y  )  
-  } else {
-    out <- y
-  }
+  out <- y
   
   return(out)
 }
