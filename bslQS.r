@@ -5,7 +5,7 @@
 
 #######################################
 ## name of this package
-Package <- "Adj.04.corr60min"  # stays only a global variable...
+Package <- "bsl.QS"  # stays only a global variable...
 pack.dir <- substr(system.file("extdata", "gawk.exe", package = Package), 1,       # path to the package 
                    nchar(system.file("extdata", "gawk.exe", package = Package))-9)
 
@@ -84,6 +84,7 @@ rain_data_proc_meth <- "mean04"                   # mean of  4 CML time series
 rain_data_proc_meth <- "meanChan"                 # means of the two channels of the respective CMLs
 rain_data_proc_meth <- "basInterp"                # separating baseline by interpolating between the last and the next dry timestep
 rain_data_proc_meth <- "basFeni-m-0.00568"        # separating baseline with a low-pass filter parameter m (Fenicia et al., 2012)
+rain_data_proc_meth <- "baseQuantSmooth"          # separating baseline calculated as moving quantile window through smooting of hourly data
 rain_data_proc_meth <- "WAAconst-WAA-1.57"        # separating WAA as a constant offset, similarly to Overeem et al. (2011)
 rain_data_proc_meth <- "WAAKhaRo-C-7-d-0.125"     # separating WAA depending on the total measured A; Kharadly and Ross (2001)
 rain_data_proc_meth <- "WAAGaRu-C-7-d-0.55"       # separating WAA depending on the absolute (not specific) rainfall-induced A; see Garcia-Rubia et al. (2011)
@@ -100,124 +101,87 @@ rain_data_proc_meth <- "AtoR"                     # specific attenuation to rain
 
 
 #####################################################################################################################
-## adjusts using the "Pre" events
+## calibrates using the "Ca" events
 
 #######################################
 ## reads rainfall data for desired time periods,
 ## applies the selected processing method and deals with NAs,
 scens <- as.character(c())
-scens <- c( scens, "read remRGs_all__single-10--aggregby-min-60" )
-remRGs <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
+scens <- c( scens, "read remRGs_mean3__aggregby-min-60" )
+remRGs <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsCa ) , ] )
 
 scens <- as.character(c())
-scens <- c( scens, "read CML12_tpl__keep16paper--meanChan--basInterp" )
-CML_base <- sup.rain.data( scens = scens,  periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
+scens <- c( scens, "read CML14_bslQuantSm" )
+CML_bsl <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsCa ) , ] )
 
 
 #######################################
-## adjusts (calibrates per chunks of length N) the chosen WAA model
+## calibrates the chosen WAA model
 time_start <- proc.time()
 
 WAA_meth  <- "WAAVal" 
 par_names <- c("k", "alp")
-par_init  <- c(0.68, 0.34)
+# par_init  <- c(0.68, 0.34)
+par_init <-  c(0.697, 0.502)
 lower     <- c( 0.001, 0.01 )
 upper     <- c( 3, 3 ) 
+max.call  <- 1
 
-N <- 5
-
-par_opt_all <- array( data = 0, dim = c( nrow(remRGs), 16, length(par_names) ) )  # parameter values equal to 0 => zero QPE
-dimnames(par_opt_all) <- list( as.character(remRGs$time), paste0("#", as.character(c(3:9, 11:19))), par_names)
-
-dt <- difftime( remRGs$time[2], remRGs$time[1] )
-for ( i_ev in unique(remRGs$id) ) {  # for each event
+par_opt_all <- data.frame(  matrix(vector(), 0, length(par_names))   );  colnames(par_opt_all) <- par_names;   
+for ( i_link in colnames( CML_base )[ ! colnames( CML_base ) %in% c("id", "time") ] ) {
+  i_link <- strsplit( i_link, "_-_" )[[1]][1]
   
-  times_ev <- remRGs$time[remRGs$id %in% i_ev]
-  first <- TRUE
-  for ( i_ord in 1:length(times_ev) ) {  # for each timestep ~~ chunk of length N
-    i_i <- rev(times_ev) [i_ord]
-    i_i_char <- as.character( rev(times_ev) ) [i_ord]
+  #######################################
+  ## selects data for the given CML
+  scens <- as.character(c())
+  scens <- c( scens, paste0("CML_base__single-", i_link) )
+  CML_base_link <- sup.rain.data( scens = scens )
+  
+  #######################################
+  ## defines the function to be minimized
+  WAA_inf <- function(pars) {
     
-    i_iminusAlmostN <- i_i - (N-1)*dt
+    mod.scens <- as.character(c())
     
-    if ( !first ) {
-      if ( i_iminusAlmostN < min(times_ev) ) {break}  
-    }
-    first <- FALSE
+    pars_str <- paste(par_names[1], pars[1], par_names[2], pars[2], sep = "-")
+    proc_meth <- paste0(WAA_meth, "-", pars_str, "--AttSpec--AtoR--aggregby-min-60")
     
-    i_itoAlmostN <- seq( i_i, i_iminusAlmostN, -dt )
-    remRGs_chunk <- remRGs[ remRGs$time %in% i_itoAlmostN , ]
+    mod.scens <- c( mod.scens, paste0( "CML_base_link__", proc_meth ) )
+    sup.rain.data <- sup.rain.data( scens = mod.scens )
     
-    times_CML_max <- i_i + dt/2   # corresponding to the aggregby function
-    times_CML_min <- i_iminusAlmostN - dt/2
-    times_CML_chunk <- CML_base$time[ which( ( CML_base$time < times_CML_max ) * ( CML_base$time > times_CML_min ) == 1 ) ]
     
-    CML_base_chunk  <- CML_base[ CML_base$time %in% times_CML_chunk,  ]
-    
-    # if zero reference, than zero parameters => zero QPE
-    if ( sum(remRGs_chunk[ , ! colnames( remRGs_chunk ) %in% c("id", "time") ], na.rm = T) == 0 ) { next }  
-    
-    for ( i_link in colnames( CML_base )[ ! colnames( CML_base ) %in% c("id", "time") ] ) {  # for each CML
-      i_link <- strsplit( i_link, "_-_" )[[1]][1]
+    #######################################
+    ## calculates performance statistics
+    out_vec <- c()
+    for ( i_col in colnames( sup.rain.data[   !colnames(sup.rain.data) %in% c("time", "id") ] ) ) {
       
-      CML_base_chunk_link <- CML_base_chunk[ c( "id", "time", colnames(CML_base_chunk)[ grep( paste0(i_link, "_-_"), colnames(CML_base_chunk) ) ] ) ]
+      noNAs <-  !is.na(sup.rain.data[i_col]) 
+      mod <- sup.rain.data[i_col] [ noNAs ] 
+      obs <- remRGs$remRGs_mean3 [ noNAs ]
       
-      # if no CML data, than NA parameter values => NA QPE
-      if ( length( which( !is.na( CML_base_chunk_link[ colnames( CML_base_chunk_link )[ ! colnames( CML_base_chunk_link ) %in% c("id", "time") ] ] ) ) ) == 0 ) { 
-        par_opt_all[ i_i_char, i_link,  ] <- t(as.numeric(c(NA,NA))) 
-      } else {
-        
-        # if no attenuation observed, than zero parameters => zero QPE
-        if ( sum( CML_base_chunk_link[ colnames( CML_base_chunk_link )[ ! colnames( CML_base_chunk_link ) %in% c("id", "time") ] ] , na.rm = T ) == 0 ) { next }
-        
-        #######################################
-        ## defines the function to be minimized
-        WAA_inf <- function(pars) {
-          
-          mod.scens <- as.character(c())
-          
-          pars_str <- paste(par_names[1], pars[1], par_names[2], pars[2], sep = "-")
-          proc_meth <- paste0(WAA_meth, "-", pars_str, "--AttSpec--AtoR--aggregby-min-60")
-          
-          mod.scens <- c( mod.scens, paste0( "CML_base_chunk_link__", proc_meth ) )
-          sup.rain.data <- sup.rain.data( scens = mod.scens )
-          
-          
-          #######################################
-          ## calculates performance statistics
-          out_vec <- c()
-          for ( i_col in colnames( sup.rain.data[   !colnames(sup.rain.data) %in% c("time", "id") ] ) ) {
-            
-            noNAs <-  !is.na(sup.rain.data[i_col]) 
-            mod <- sup.rain.data[i_col] [ noNAs ] 
-            obs <- remRGs_chunk[ , ! colnames( remRGs_chunk ) %in% c("id", "time") ] [ noNAs ]
-            
-            out_vec <- c( out_vec,  sqrt( mean( (mod-obs)^2 ) ) )
-          }
-          
-          out <- mean( out_vec )
-          
-          print(out)
-          
-          return(out)
-        }
-        
-        
-        #######################################
-        ## infers the paramaters of the WAA model
-        par_init <- par_init
-        set.seed(42)
-        Opt.precal1 <- GenSA::GenSA( par = par_init,
-                                     fn    = WAA_inf, 
-                                     lower =  lower,
-                                     upper =  upper,
-                                     control= list( max.call = 500, verbose = T, simple.function = F )
-        )
-        
-        par_opt_all[ i_i_char, i_link,  ] <- t(Opt.precal1$par) 
-      }
+      out_vec <- c( out_vec,  sqrt( mean( (mod-obs)^2 ) ) )
     }
+    
+    out <- mean( out_vec )
+    
+    print(out)
+    
+    return(out)
   }
+  
+  
+  #######################################
+  ## infers the paramaters of the WAA model
+  par_init <- par_init
+  set.seed(42)
+  Opt.precal1 <- GenSA::GenSA( par = par_init,
+                               fn    = WAA_inf, 
+                               lower =  lower,
+                               upper =  upper,
+                               control= list( max.call = max.call, verbose = T, simple.function = F )
+  )
+  
+  par_opt_all[i_link,] <-t(Opt.precal1$par)
 }
 
 time_end   <- proc.time(); time_taken <- time_end - time_start; time_taken
@@ -229,80 +193,24 @@ time_end   <- proc.time(); time_taken <- time_end - time_start; time_taken
 
 #######################################
 ## defines data to be evaluated
-scens <- as.character(c())
-scens <- c( scens, "CML_base__noProc" )
-CML_R <- sup.rain.data( scens = scens )
+CML_base_Pre <- match_with_periods(raindata = CML_base_whole, periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
 
-CML_R[ ! colnames(CML_R) %in% c("id", "time") ] <- NA
-colnames(CML_R) [ ! colnames(CML_R) %in% c("id", "time") ] <-  sub( "noProc", "WAAValAdj", colnames(CML_R)[ ! colnames(CML_R) %in% c("id", "time") ] )
-
-dt <- difftime( remRGs$time[2], remRGs$time[1] )
-for ( i_ev in unique(remRGs$id) ) {  # for each event
+mod.scens <- as.character(c())
+for ( i_link in rownames(par_opt_all) ) {
   
-  times_ev <- remRGs$time[remRGs$id %in% i_ev]
-  first <- TRUE
-  for ( i_ord in 1:length(times_ev) ) {  # for each reference timestep ~~ chunk of length N
-    i_i <- rev(times_ev) [i_ord]
-    i_i_char <- as.character( rev(times_ev) ) [i_ord]
-    
-    i_iminusN <- i_i - (N)*dt
-    i_iminusAlmostN <- i_i - (N-1)*dt
-    
-    if ( !first ) {
-      if ( i_iminusAlmostN < min(times_ev) ) {break}  
-    }
-    first <- FALSE
-    
-    i_itoN <- seq( i_i, i_iminusN, -dt )
-    times_CML_chunk <- CML_base$time[ which( ( CML_base$time <= max(i_itoN) ) * ( CML_base$time > min(i_itoN) ) == 1 ) ]
-    
-    CML_base_chunk  <- CML_base[ CML_base$time %in% times_CML_chunk,  ]
-    CML_R_chunk     <- CML_R[ CML_R$time %in% times_CML_chunk,  ]
-    
-    for ( i_link in colnames( CML_base )[ ! colnames( CML_base ) %in% c("id", "time") ] ) {  # for each CML
-      i_link <- strsplit( i_link, "_-_" )[[1]][1]
+  pars_str  <- paste( par_names[1], par_opt_all[i_link,][1], par_names[2], par_opt_all[i_link,][2], sep = "-")
+  proc_meth <- paste0(WAA_meth, "-", pars_str, "--AttSpec--AtoR--aggregby-min-60")
   
-      CML_base_chunk_link <- CML_base_chunk[ c( "id", "time", colnames(CML_base_chunk)[ grep( paste0(i_link, "_-_"), colnames(CML_base_chunk) ) ] ) ]
-      
-      CML_R_chunk_link <- CML_R_chunk[ c( "id", "time", colnames(CML_R_chunk)[ grep( paste0(i_link, "_-_"), colnames(CML_R_chunk) ) ] ) ]
-      
-      # if WAA model parameters not available
-      if ( sum( is.na( par_opt_all[i_i_char, i_link,] ) ) != 0 ) {
-        CML_R_chunk_link[ ! colnames(CML_R_chunk_link) %in% c("id", "time") ] <- NA
-      } else {
-        # if WAA model parameters equal zero
-        if ( sum(par_opt_all[i_i_char, i_link,]) == 0 ) {
-          CML_R_chunk_link[ ! colnames(CML_R_chunk_link) %in% c("id", "time") ] <- 0
-        } else {
-          
-          scens <- as.character(c())
-          
-          pars_str <- paste(par_names[1], par_opt_all[i_i_char, i_link, 1], par_names[2], par_opt_all[i_i_char, i_link, 2], sep = "-")
-          proc_meth <- paste0(WAA_meth, "-", pars_str, "--AttSpec--AtoR")
-          
-          scens <- c( scens, paste0( "CML_base_chunk_link__", proc_meth ) )
-          CML_R_chunk_link <- sup.rain.data( scens = scens )
-        }
-        
-        CML_R_chunk[ , colnames(CML_R_chunk)[ grep( paste0(i_link, "_-_"), colnames(CML_R_chunk) ) ]  ] <- CML_R_chunk_link[ ! colnames(CML_R_chunk_link) %in% c("id", "time") ]          
-      }
-    }
-    
-    CML_R[ CML_R$time %in% CML_R_chunk$time,  ] <- CML_R_chunk
-  }
-  
-  # if CML data timesteps after the last (aggregated) reference data timestep, then zero QPEs (end of the event <=> no rainfall)
-  leftovers <- CML_R[ CML_R$id %in% i_ev  , "time" ] > max( times_ev )
-  CML_R[ CML_R$id %in% i_ev  , ! colnames(CML_R) %in% c("id", "time") ] [ leftovers, ] <- 0
+  mod.scens <- c( mod.scens, paste0( "CML_base_Pre__single-", i_link, "--", proc_meth ) )
 }
-
-scens <- as.character(c())
-scens <- c( scens, "CML_R__aggregby-min-60" )
-sup.group.res_rain <- sup.rain.data( scens = scens )
+sup.group.res_rain <- sup.rain.data( scens = mod.scens )
 
 #######################################
 ## defines data to be used as reference
-sup.group.res_rain["Qobs"] <- remRGs[ !colnames(remRGs) %in% c( "id", "time" ) ] 
+scens <- as.character(c())
+scens <- c( scens, "read remRGs_mean3__aggregby-min-60" )
+remRGs_Pre <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
+sup.group.res_rain["Qobs"] <- remRGs_Pre[ !colnames(remRGs_Pre) %in% c( "id", "time" ) ] 
 sup.group.res_rain["sd_Qobs"] <- NA[]
 
 #######################################
@@ -349,9 +257,30 @@ for ( i_subset in names(events.subsets) ) {
 #######################################
 ## reads rainfall data for desired time periods - "Pre" events
 ## applies the selected processing method and deals with NAs - parameters optimized above
+CML_baseQuantSmooth_Pre <- match_with_periods(raindata = CML_base_whole, periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
+
+mod.scens <- as.character(c())
+for ( i_link in rownames(par_opt_all) ) {
+  
+  pars_str  <- paste( par_names[1], par_opt_all[i_link,][1], par_names[2], par_opt_all[i_link,][2], sep = "-")
+  proc_meth <- paste0(WAA_meth, "-", pars_str, "--AttSpec--AtoR")
+  
+  mod.scens <- c( mod.scens, paste0( "CML_baseQuantSmooth_Pre__single-", i_link, "--", proc_meth ) )
+}
+
 scens <- as.character(c())
-scens <- c( scens, "CML_R__noProc" )
-sup.rain.data <- sup.rain.data( scens = scens )
+scens <- c( scens, "read CML12_tpl__keep16paper--meanChan--basInterp" )
+CML_baseInter_Pre <- sup.rain.data( scens = scens,  periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
+
+for ( i_link in rownames(par_opt_all) ) {
+  
+  pars_str  <- paste( par_names[1], par_opt_all[i_link,][1], par_names[2], par_opt_all[i_link,][2], sep = "-")
+  proc_meth <- paste0(WAA_meth, "-", pars_str, "--AttSpec--AtoR")
+  
+  mod.scens <- c( mod.scens, paste0( "CML_baseInter_Pre__single-", i_link, "--", proc_meth ) )
+}
+
+sup.rain.data <- sup.rain.data( scens = mod.scens )
 
 #######################################
 ## runs rainfall-runoff simulations - for all rainfall data specifies above
@@ -446,8 +375,8 @@ save.image( file = paste0(pack.dir, "/", Package, ".Rdata") )
 
 #######################################
 ## plots hydrographs
-sup.group.plot.noInf( mod.scens.to.plot = colnames(sup.rain.data)[ !colnames(sup.rain.data) %in% c("time", "id") ][c(1,2,4)], 
-                      name = paste0( "adj60min"),
+sup.group.plot.noInf( mod.scens.to.plot = colnames(sup.rain.data)[ !colnames(sup.rain.data) %in% c("time", "id") ][c(1,2,17,18)], 
+                      name = paste0( "baseQuantSmooth_vs_baseInter"),
                       sup.group.res = sup.group.res, sup.rain.data = sup.rain.data, pack.dir = pack.dir )
 dev.off()
 

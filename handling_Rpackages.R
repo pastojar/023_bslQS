@@ -8,7 +8,7 @@
 # loading a package
 
 if ( !require(devtools) )    { install.packages("devtools");    library(devtools) } 
-setwd("D:/packs/022_Adj/022_Adj_04_corr60min/Adj_04_corr60min")
+setwd("D:/packs/023_bslQS/023_bslQS_01_pilot/bslQS")
 devtools::load_all()
 
 

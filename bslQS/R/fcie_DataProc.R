@@ -50,7 +50,7 @@ sup.rain.data <- function ( scens, periods = NULL ) {
     # } 
     
     if ( i == 1 ) {
-      sup.rain.data <- rain.data.proc[ c( "id", "time", names(rain.data.proc)[ !names(rain.data.proc) %in% c("time", "id") ]  ) ]
+      sup.rain.data <- rain.data.proc[ c( names(rain.data.proc)[ names(rain.data.proc) %in% c("time", "id") ], names(rain.data.proc)[ !names(rain.data.proc) %in% c("time", "id") ]  ) ]
     } else {
       sup.rain.data <- cbind (sup.rain.data, rain.data.proc[ !names(rain.data.proc) %in% c("time", "id") ] )    
     }
@@ -266,8 +266,12 @@ aggregbykeepLin <- function( rain.data, proc_meth_par){
   # adds zero observations at the starts and ends of the events
   y_short_new <- y_short[0,]
   
-  if ( length( which( diff(y_short$time, ) != by_step/60 ) ) > 0 ) {
-    event_ends <-  which( diff(y_short$time, ) != by_step/60 )
+  time_diff <- difftime( time1 =  y_short$time[ -1 ] ,
+                         time2 =  y_short$time[ -nrow(y_short) ], 
+                         units = c("mins") )
+  
+  if ( length( which( time_diff != by_step ) ) > 0 ) {
+    event_ends <-  which( time_diff != by_step )
   } else {
     event_ends <- nrow(y_short)
   }
@@ -403,6 +407,51 @@ basFeni <- function(rain.data, proc_meth_par) {
   }
   
   return(out)
+}
+
+
+# separating baseline calculated as moving quantile window through smooting of hourly data  --------------------------
+baseQuantSmooth <- function (rain.data, q = .5, win = 7 * 24, ...) {
+  # adapted from baseline_Qsmoothing from https://github.com/fenclmar/Rcmlrain/blob/master/Rcmlrain/fun_CML.r
+  #
+  # baseline calculated as moving quantile window through smooting of hourly data using first
+  # predefined function and then quantile. The window is moving is moving by hourly steps.
+  # The window length should be set up considering typical duratio of rain
+  # events to ensure sufficienlty high ratio of dry weather records is within
+  # window range (in each step). 
+  #
+  # rain.data - tpl data
+  # q - quantile (0-1) of tpl hourly subset (within moving window) used for
+  #            basline.
+  # win - smoothing window size in hours (default is one week)
+  
+  tpl <- rain.data
+  by_step <- 60; names(by_step) = "min"  
+
+  tpl_h_unzoo <- aggregby( rain.data = tpl, proc_meth_par = by_step )
+  tpl_h <- zoo::zoo( x = tpl_h_unzoo[ ! colnames(tpl_h_unzoo) %in% c("time", "id") ], order.by = tpl_h_unzoo$time )
+  
+  b_h  <- zoo::rollapply(tpl_h, win, quantile, probs = q, na.rm = T,
+                         align = 'center', by = 1, partial = T)
+  b_h2 <- zoo::rollapply(b_h, win, mean, na.rm = T, align = 'center',
+                         by = 1, partial = T)
+  
+  tpl_zoo <- zoo::zoo( x = tpl[ ! colnames(tpl) %in% c("time", "id") ], order.by = tpl$time )
+  
+  bsl <- tpl_zoo
+  bsl[ ] <- NA
+  bsl[ zoo::index(b_h2), ] <- b_h2
+  bsl <- zoo::na.approx(bsl, method = 'linear', rule = 2, f = .5)
+  
+  hlp <- tpl_zoo - bsl
+
+  out <- zoo::fortify.zoo(model = hlp)
+  out <- out[ ! colnames(out) %in% "Index" ]
+  out[ out < 0 ]  <- 0
+  out <- cbind( zoo::index(hlp), out )
+  colnames(out)[1] <- "time"
+   
+  return (out)
 }
 
 
@@ -1193,17 +1242,24 @@ manage_NAs <- function(time.series, time.limit, rem) {
   out <- time.series[ -(1 : length(time.series[,1])), ]
   
   uncorrected <- c()
-  for ( event_ID in unique(as.character(time.series$id)) ) {
-    event_ID <- as.POSIXct(event_ID, tz="UTC")
-    time.series.event <- match_with_IDs(time.series, event_ID)
+  
+  if ( ! "id" %in% colnames(time.series) ) {
+    fc_core <- manage_NAs_core(time.series = time.series, time.limit = time.limit, rem = rem)
+    out <- fc_core[["out"]]
+  } else {
     
-    fc_core <- manage_NAs_core(time.series = time.series.event, time.limit = time.limit, rem = rem)
-    out_core <- fc_core[["out"]]
-    if ( fc_core[["uncorrected"]] == T ) {
-      uncorrected <- c(uncorrected, as.character(event_ID))
+    for ( event_ID in unique(as.character(time.series$id)) ) {
+      event_ID <- as.POSIXct(event_ID, tz="UTC")
+      time.series.event <- match_with_IDs(time.series, event_ID)
+      
+      fc_core <- manage_NAs_core(time.series = time.series.event, time.limit = time.limit, rem = rem)
+      out_core <- fc_core[["out"]]
+      if ( fc_core[["uncorrected"]] == T ) {
+        uncorrected <- c(uncorrected, as.character(event_ID))
+      }
+      
+      out <- rbind(out, out_core)
     }
-    
-    out <- rbind(out, out_core)
   }
   
   # if ( length(uncorrected) > 0 ) {            # if there are some time steps with NA rainfall data
