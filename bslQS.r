@@ -7,19 +7,17 @@
 ## setting up the environment
 print( getwd() )  # make sure the wd is set correctly (it should be on default if inside an R-project)
 pack <- devtools::load_all()  # loading the R package  
-Package <- environmentName( pack$env )   # name of this package, stays only a global variable...
-pack.dir <- substr( system.file("extdata", "gawk.exe", package = Package), 1,       # path to the package data files
-                    nchar(system.file("extdata", "gawk.exe", package = Package))-9 )
-out.dir <- file.path( getwd(), "outputs" )
+package <- environmentName( pack$env )   # name of this package
+out.dir <- file.path( getwd(), "outputs" )  # output directory
 
 
 #######################################
 ## reads FG and RG statistical overview and CML meta data
 ## ! Decide here about the statistics files (the periods used)  (it defines the rainfall-runoff events)
-uni.data <- read.stats(FG.ov.path  = system.file("extdata", "flow_stats_Q2min_(12_tpl+locRGs_smooth+remRGs)+MP1_H2min.csv", package = Package),
-                       RG.ov.path  = system.file("extdata", "rainfall_stats_locRGs_smooth_(12_tpl+locRGs_smooth+remRGs)+MP1_H2min_2mm_short.csv", package = Package)
+uni.data <- read.stats(FG.ov.path  = system.file("extdata", "flow_stats_Q2min_(12_tpl+locRGs_smooth+remRGs)+MP1_H2min.csv", package = package),
+                       RG.ov.path  = system.file("extdata", "rainfall_stats_locRGs_smooth_(12_tpl+locRGs_smooth+remRGs)+MP1_H2min_2mm_short.csv", package = package)
 )
-uni.data[["CML_meta"]] <- read.csv( system.file( "extdata", "meta_25xCML_complet.csv", package = Package ), sep = ";", stringsAsFactors = F )
+uni.data[["CML_meta"]] <- read.csv( system.file( "extdata", "meta_25xCML_complet.csv", package = package ), sep = ";", stringsAsFactors = F )
 
 
 #######################################
@@ -274,6 +272,7 @@ for ( i_subset in names(events.subsets) ) {
 }
 
 
+
 #########################################################################
 ## Rainfall-Runoff simulations and evaluation
 
@@ -285,11 +284,11 @@ for ( i_scen in colnames(newRain)[ !colnames(newRain) %in% c("time", "id") ] ) {
   
   #######################################
   ## prepares data for SWMM (or other R-R model)
-  Urquell <- system.file("extdata", "inpfile.inp", package = Package) # path to the catchment model
+  Urquell <- system.file("swmm", "inpfile.inp", package = package) # path to the catchment model
   
   prodata <- list(); prodata$Pre <- list();
   prodata$Pre  <- setupSWMMX( eventIDs = eventIDsPre, flow.data.proc = match_with_IDs(rainfall_datfr = flow.data.proc, IDs = eventIDsPre), 
-                              Urquell = Urquell, pack.dir = pack.dir )
+                              Urquell = Urquell, package = package )
   
   #######################################
   ## prepares rainfall files for SWMM (or other R-R model)
@@ -302,7 +301,7 @@ for ( i_scen in colnames(newRain)[ !colnames(newRain) %in% c("time", "id") ] ) {
     prodata_rain_name <- i_scen 
   }
   Rain_File_Tab_Pre  <- setupRainFiles( rain.data.proc = newRain[ c("time", "id", prodata_rain_name) ], 
-                                        pack.dir = pack.dir )
+                                        package = package )
   Rain_File_Tab <- Rain_File_Tab_Pre
   
   #######################################
@@ -359,7 +358,7 @@ for (j in names(statistics_rain_inf$all$overview_ev)) {
                sep = ";", col.names = NA, row.names = TRUE )
 }
 
-save.image( file = paste0(out.dir, "/", Package, ".Rdata") )
+save.image( file = paste0(out.dir, "/", package, ".Rdata") )
 
 
 

@@ -37,11 +37,8 @@ model.1res <- function(par, L, inp.file)
   #
   #   S1_0    initial cascade state  
   
-  
-  # start.t <- proc.time()
-  
-  pack.dir <- substr(system.file("extdata", "gawk.exe", package = Package),1 ,         # path to the package
-                     nchar(system.file("extdata", "gawk.exe", package = Package))-9)
+
+
   
   # set original parameter values:
   # --------------

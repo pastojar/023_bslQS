@@ -54,8 +54,7 @@ read_select_data <- function (rain_data_name, periods) {
   
   
   
-  rain.dat.path <- system.file( "extdata", paste0(rain_data_name, ".RData"), package = Package ) 
-  
+  rain.dat.path <- file.path( getwd(), "inst", "extdata", paste0(rain_data_name, ".RData") )
   
   # loads the rainfall data ( a data frame named "R")
   load( rain.dat.path ) 

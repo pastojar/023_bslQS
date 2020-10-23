@@ -1,19 +1,21 @@
 ######################################################################################
-# runs.SWMM model
+# runs SWMM model
 #
 # J. Pastorek, JAN 2018
 ######################################################################################
 
 model.swmm <- function(par, L, inp.file)
 {
-  pack.dir <- substr(system.file("extdata", "gawk.exe", package = Package),1 ,         # path to the package
-                     nchar(system.file("extdata", "gawk.exe", package = Package))-9)
+  # o. path to the package files
+  
+  pack.dir <- strsplit( inp.file, "/swmm")[[1]][1]
+                     
   
   # i. sets model parameters
   
   to.run.inp.file <- paste(substr(inp.file, 1, nchar(inp.file)-4), "_par.inp", sep="")
   
-  shell(paste(system.file("extdata", "gawk.exe", package = Package), 
+  shell( paste( file.path( pack.dir, "extdata", "gawk.exe" ), 
               #" -v imperviousness=",par["mult.imp"],
               #" -v width=", par["mult.wid"],
               " -v slope=", par["mult.slo"],
@@ -22,7 +24,7 @@ model.swmm <- function(par, L, inp.file)
               #" -v sperv=", par["mult.Spe"],
               #" -v pctzero=", par["mult.Pze"],
               #" -v manning=",par["mult.rou"],      
-              " -f ", system.file("extdata", "change-3par_v2.awk", package = Package),
+              " -f ", file.path( pack.dir, "awk", "change-3par_v2.awk" ),
               " ", inp.file, " > ",
               to.run.inp.file,
               sep="")
@@ -30,15 +32,15 @@ model.swmm <- function(par, L, inp.file)
   
   # ii. runs swmm
   
-  system(paste(system.file("extdata", "swmm5.exe", package = Package),
+  system(paste( file.path( pack.dir, "extdata", "swmm5.exe" ),
                " ", to.run.inp.file,
-               " ", system.file("extdata", "yM.out", package = Package)
-  ),
+               " ", file.path( pack.dir, "swmm", "yM.out" )
+  ),                 
   wait=T)
   
-  hlp <- shell(paste(system.file("extdata", "gawk.exe", package = Package),
-                     " -f ", system.file("extdata", "get-outlet.awk", package = Package),
-                     " ", system.file("extdata", "yM.out", package = Package),
+  hlp <- shell(paste( file.path( pack.dir, "extdata", "gawk.exe" ),
+                     " -f ", file.path( pack.dir, "awk", "get-outlet.awk" ),  
+                     " ", file.path( pack.dir,"swmm", "yM.out" ),
                      sep=""
   ),
   intern = TRUE

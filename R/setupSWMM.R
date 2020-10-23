@@ -3,7 +3,7 @@
 ######################################
 
 
-setupSWMMX <- function(eventIDs, flow.data.proc, Urquell, pack.dir)  {
+setupSWMMX <- function(eventIDs, flow.data.proc, Urquell, package)  {
   
   FG.data <- flow.data.proc
   
@@ -59,7 +59,7 @@ setupSWMMX <- function(eventIDs, flow.data.proc, Urquell, pack.dir)  {
     # and remembers the path to the inp file
     # -------------------------
     out.name <- format(Ev.id, format = "%Y.%m.%d_%H.%M.%S")
-    RG.path  <- paste(pack.dir, "/data/", out.name, "_rainRG", sep="")
+    RG.path  <- paste0( system.file( "swmm", "raindata", package = package ), "/", out.name, "_rainRG" )
     
     Ev.FG.timestep <- as.POSIXct(Ev.FG.data$Date.Time, format="%d/%m/%Y %H:%M", origin="1970-01-01 00:00:00 UTC", tz="UTC")
     
@@ -75,8 +75,8 @@ setupSWMMX <- function(eventIDs, flow.data.proc, Urquell, pack.dir)  {
     
     t.sim     = c(START_DATE, START_TIME, END_DATE, END_TIME, WET_STEP="00:02:00", REPORT_STEP="00:02:00")  # report step 2 mins
     
-    inp.path <- paste(pack.dir, "/", out.name, ".inp", sep="")
-    shell( paste(system.file("extdata", "gawk.exe", package = Package),
+    inp.path <- paste0( system.file( "swmm", "inpfile_mod", package = package ), "/", out.name, ".inp" )
+    shell( paste(system.file("extdata", "gawk.exe", package = package),
                  " -v START_DATE=", t.sim[1],
                  " -v START_TIME=", t.sim[2],
                  " -v END_DATE=", t.sim[3],
@@ -84,7 +84,7 @@ setupSWMMX <- function(eventIDs, flow.data.proc, Urquell, pack.dir)  {
                  " -v WET_STEP=", t.sim[5],
                  " -v REPORT_STEP=", t.sim[6],
                  " -v RAIN_PATH=", RG.path,  # the name of the time series has to be "RAINDAT" (else change time_modif.awk)
-                 " -f ", system.file("extdata", "time_modif.awk", package = Package),  
+                 " -f ", system.file("awk", "time_modif.awk", package = package),  
                  " ", Urquell, " > ",
                  inp.path,
                  sep="")
@@ -105,7 +105,7 @@ setupSWMMX <- function(eventIDs, flow.data.proc, Urquell, pack.dir)  {
 ######################################################################################
 
 
-setupRainFiles <- function( rain.data.proc, pack.dir )  {
+setupRainFiles <- function( rain.data.proc, package )  {
   
   # checks the input format first
   # -------------------------------
@@ -158,11 +158,12 @@ setupRainFiles <- function( rain.data.proc, pack.dir )  {
       
       # saves rain time series file for a given event and remembers the path to the file
       # -------------------------
-      write.table(Ev.RG.data.SWMM, paste(pack.dir, "/data/", out.name, "_rain.dat", sep=""), col.names=T, row.names=F, sep=";",quote=F)
+      write.table(Ev.RG.data.SWMM, paste0( system.file( "swmm", "raindata", package = package ), "/", out.name, "_rain.dat" ), 
+                  col.names=T, row.names=F, sep=";", quote=F)
       rain.path <- c()
       
       for (i in 1:3) {        # the current SWMM model works with 3 RGs
-        rain.path[i] <- paste(pack.dir, "/data/", out.name, "_rainRG", i, ".dat", sep="")
+        rain.path[i] <- paste0( system.file( "swmm", "raindata", package = package ), "/", out.name, "_rainRG", i, ".dat" )
         # which rain data to write
         write.table(Ev.RG.data.SWMM[ , c("time", c("RG1", "RG2", "RG3")[i]) ], rain.path[i],  col.names=F, row.names=F, sep=" ",quote=F) 
       }
