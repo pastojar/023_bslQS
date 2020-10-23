@@ -1,13 +1,17 @@
 ######################################
-## J. Pastorek, SEP 2020
+## J. Pastorek, OCT 2020
 ######################################
 
 
 #######################################
-## name of this package
-Package <- "bsl.QS"  # stays only a global variable...
-pack.dir <- substr(system.file("extdata", "gawk.exe", package = Package), 1,       # path to the package 
-                   nchar(system.file("extdata", "gawk.exe", package = Package))-9)
+## setting up the environment
+print( getwd() )  # make sure the wd is set correctly (it should be on default if inside an R-project)
+pack <- devtools::load_all()  # loading the R package  
+Package <- environmentName( pack$env )   # name of this package, stays only a global variable...
+pack.dir <- substr( system.file("extdata", "gawk.exe", package = Package), 1,       # path to the package data files
+                    nchar(system.file("extdata", "gawk.exe", package = Package))-9 )
+out.dir <- file.path( getwd(), "outputs" )
+
 
 #######################################
 ## reads FG and RG statistical overview and CML meta data
@@ -46,57 +50,60 @@ flow.data.proc <- flow.data[,c("time","id", "MP1", "sd_Q")]
 
 
 #######################################
-## overview of initial attenuation or rainfall data to work with
+## overview of available attenuation and rainfall data 
 ## and of methods for processing the data
-rain_data_name <- "locRGs"                        # local RGs (7 RGs at 5 locations) - all available data
-rain_data_name <- "locRGs_smooth"                 # local RGs (7 RGs at 5 locations) - all available data - smooth
-rain_data_name <- "remRGs_all"                    # remote RGs (all 23 gauges) - data from a 3-year period
-rain_data_name <- "remRGs_mean3"                  # remote RGs (mean of the closest 3 - numbers 10, 13, and 22) - data from a 3-year period
 
-rain_data_name <- "CML4_kR"                       # CML (25 links) data from a 3-year period with k-R model
-rain_data_name <- "CML5_cor15"                    # CML (19 links) data from a 3-year period corrected by remote RGs (15 min)
-rain_data_name <- "CML5_cor60"                    # CML (19 links) data from a 3-year period corrected by remote RGs (60 min)
-rain_data_name <- "CML6_kR_noWAA"                 # CML (25 links) data from a 3-year period with k-R model, WAA = 0
-rain_data_name <- "CML7_varWAA"                   # CML (25 links) data from a 3-year period with k-R model, various WAA (from 0 to 3 dB)
-rain_data_name <- "CML08_varAlp"                  # CML (25 links) data from a 3-year period with k-R model, various Alpha parameter, WAA=1.4
-rain_data_name <- "CML09_drywet"                  # CML (25 links) data from a 3-year period with k-R model, new baseline B (??) , various WAA (from 0 to 3 dB), Alpha by ICU
-rain_data_name <- "CML10_linWAA"                  # CML (25 links) data from a 3-year period with k-R model, WAA = 1.4  BUT multiplied by a factor growing lineraly with (tot. attenuation - baseline)
-rain_data_name <- "CML11_only_A"                  # TPL3, (minus) baseline accord. to Fenicia, mean of the 2 channels
-rain_data_name <- "CML12_tpl"                     # TPL3, single channels
+      # rain_data_name
+"locRGs"                        # local RGs (7 RGs at 5 locations) - all available data
+"locRGs_smooth"                 # local RGs (7 RGs at 5 locations) - all available data - smooth
+"remRGs_all"                    # remote RGs (all 23 gauges) - data from a 3-year period
+"remRGs_mean3"                  # remote RGs (mean of the closest 3 - numbers 10, 13, and 22) - data from a 3-year period
 
+"CML4_kR"                       # CML (25 links) data from a 3-year period with k-R model
+"CML5_cor15"                    # CML (19 links) data from a 3-year period corrected by remote RGs (15 min)
+"CML5_cor60"                    # CML (19 links) data from a 3-year period corrected by remote RGs (60 min)
+"CML6_kR_noWAA"                 # CML (25 links) data from a 3-year period with k-R model, WAA = 0
+"CML7_varWAA"                   # CML (25 links) data from a 3-year period with k-R model, various WAA (from 0 to 3 dB)
+"CML08_varAlp"                  # CML (25 links) data from a 3-year period with k-R model, various Alpha parameter, WAA=1.4
+"CML09_drywet"                  # CML (25 links) data from a 3-year period with k-R model, new baseline B (??) , various WAA (from 0 to 3 dB), Alpha by ICU
+"CML10_linWAA"                  # CML (25 links) data from a 3-year period with k-R model, WAA = 1.4  BUT multiplied by a factor growing lineraly with (tot. attenuation - baseline)
+"CML11_only_A"                  # TPL3, (minus) baseline accord. to Fenicia, mean of the 2 channels
+"CML12_tpl"                     # TPL3, single channels
+"CML14_bslQuantSm"              # CML after baseline separation using "baseQuantSmooth", 16 link, mean of the two channels
 
-rain_data_proc_meth <- "noProc"                   # no processing
-rain_data_proc_meth <- "meanAll"                  # mean of all time series
-rain_data_proc_meth <- "aggregby-min-5"           # aggregates time series to a coarser time step
-rain_data_proc_meth <- "aggregbykeepLin-min-15"   # aggregates time series to a coarser time step but disaggregates it back afterwards using linear interpolation
-rain_data_proc_meth <- "single-***"               # selects a single time series
-rain_data_proc_meth <- "meanof-***"               # takes the mean of the partial matches of the name specified
+      # rain_data_proc_meth
+"noProc"                   # no processing
+"meanAll"                  # mean of all time series
+"aggregby-min-5"           # aggregates time series to a coarser time step
+"aggregbykeepLin-min-15"   # aggregates time series to a coarser time step but disaggregates it back afterwards using linear interpolation
+"single-***"               # selects a single time series
+"meanof-***"               # takes the mean of the partial matches of the name specified
 
-rain_data_proc_meth <- "ThPol3"                   # for local RGs - 3 Thiessen polygons for SWMM
-rain_data_proc_meth <- "mean3loc"                 # for local RGs - mean of the local RGs at the 3 locations
+"ThPol3"                   # for local RGs - 3 Thiessen polygons for SWMM
+"mean3loc"                 # for local RGs - mean of the local RGs at the 3 locations
 
-rain_data_proc_meth <- "keep16paper"              # keeps only data from the 16 CMLs analyzed in the paper (Pastorek et al., 2019)
-rain_data_proc_meth <- "keep19paper"              # keeps only data from the 19 CMLs with paperID (Pastorek et al., 2019)
-rain_data_proc_meth <- "freq-fr-25"               # keeps only data from the CMLs with circa the same frequency
-rain_data_proc_meth <- "mean19"                   # mean of 19 CML time series
-rain_data_proc_meth <- "mean16"                   # mean of 16 CML time series
-rain_data_proc_meth <- "mean04"                   # mean of  4 CML time series
-rain_data_proc_meth <- "meanChan"                 # means of the two channels of the respective CMLs
-rain_data_proc_meth <- "basInterp"                # separating baseline by interpolating between the last and the next dry timestep
-rain_data_proc_meth <- "basFeni-m-0.00568"        # separating baseline with a low-pass filter parameter m (Fenicia et al., 2012)
-rain_data_proc_meth <- "baseQuantSmooth"          # separating baseline calculated as moving quantile window through smooting of hourly data
-rain_data_proc_meth <- "WAAconst-WAA-1.57"        # separating WAA as a constant offset, similarly to Overeem et al. (2011)
-rain_data_proc_meth <- "WAAKhaRo-C-7-d-0.125"     # separating WAA depending on the total measured A; Kharadly and Ross (2001)
-rain_data_proc_meth <- "WAAGaRu-C-7-d-0.55"       # separating WAA depending on the absolute (not specific) rainfall-induced A; see Garcia-Rubia et al. (2011)
-rain_data_proc_meth <- "WAAGaRuSp-C-5.5-d-1.5"    # separating WAA depending on the specific rainfall-induced A; similar to Garcia-Rubia et al. (2011)
-rain_data_proc_meth <- "WAA3GaRuSp-C-7-d-1.5-z-1" # separating WAA depending on the specific rainfall-induced A; added a 3rd parameter "z"
-rain_data_proc_meth <- "WAAKhaRoVal-C-7-d-1.5-z-1"# separating WAA similary like KhaRo, but depending on rainfall intensity R; added a 3rd parameter "z" 
-rain_data_proc_meth <- "WAAVal-k-0.68-alp-0.34"   # separating WAA depending on specific rainfall-induced A; relation proposed by Valtr et al. (2019); numerical eq. solver
-rain_data_proc_meth <- "WAAValpq-p-1.5-q-0.6"     # a modification of the relation proposed by Valtr et al. (2019)
-rain_data_proc_meth <- "WAAlog-a-2-b*5"           # separating WAA depending on specific rainfall-induced A; logarithmic curve, inspired by Valtr et al. (2019)
-rain_data_proc_meth <- "WAASchl-Wmax-2.3-tau-15"  # separating WAA using a time-dependent model of  Schleiss et al. (2013)
-rain_data_proc_meth <- "AttSpec"                  # total attenuation to specific attenuation (divided by the path length)
-rain_data_proc_meth <- "AtoR"                     # specific attenuation to rainfall
+"keep16paper"              # keeps only data from the 16 CMLs analyzed in the paper (Pastorek et al., 2019)
+"keep19paper"              # keeps only data from the 19 CMLs with paperID (Pastorek et al., 2019)
+"freq-fr-25"               # keeps only data from the CMLs with circa the same frequency
+"mean19"                   # mean of 19 CML time series
+"mean16"                   # mean of 16 CML time series
+"mean04"                   # mean of  4 CML time series
+"meanChan"                 # means of the two channels of the respective CMLs
+"basInterp"                # separating baseline by interpolating between the last and the next dry timestep
+"basFeni-m-0.00568"        # separating baseline with a low-pass filter parameter m (Fenicia et al., 2012)
+"baseQuantSmooth"          # separating baseline calculated as moving quantile window through smooting of hourly data
+"WAAconst-WAA-1.57"        # separating WAA as a constant offset, similarly to Overeem et al. (2011)
+"WAAKhaRo-C-7-d-0.125"     # separating WAA depending on the total measured A; Kharadly and Ross (2001)
+"WAAGaRu-C-7-d-0.55"       # separating WAA depending on the absolute (not specific) rainfall-induced A; see Garcia-Rubia et al. (2011)
+"WAAGaRuSp-C-5.5-d-1.5"    # separating WAA depending on the specific rainfall-induced A; similar to Garcia-Rubia et al. (2011)
+"WAA3GaRuSp-C-7-d-1.5-z-1" # separating WAA depending on the specific rainfall-induced A; added a 3rd parameter "z"
+"WAAKhaRoVal-C-7-d-1.5-z-1"# separating WAA similary like KhaRo, but depending on rainfall intensity R; added a 3rd parameter "z" 
+"WAAVal-k-0.68-alp-0.34"   # separating WAA depending on specific rainfall-induced A; relation proposed by Valtr et al. (2019); numerical eq. solver
+"WAAValpq-p-1.5-q-0.6"     # a modification of the relation proposed by Valtr et al. (2019)
+"WAAlog-a-2-b*5"           # separating WAA depending on specific rainfall-induced A; logarithmic curve, inspired by Valtr et al. (2019)
+"WAASchl-Wmax-2.3-tau-15"  # separating WAA using a time-dependent model of  Schleiss et al. (2013)
+"AttSpec"                  # total attenuation to specific attenuation (divided by the path length)
+"AtoR"                     # specific attenuation to rainfall
 
 
 
@@ -108,11 +115,11 @@ rain_data_proc_meth <- "AtoR"                     # specific attenuation to rain
 ## applies the selected processing method and deals with NAs,
 scens <- as.character(c())
 scens <- c( scens, "read remRGs_mean3__aggregby-min-60" )
-remRGs <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsCa ) , ] )
+refRain_Ca <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsCa ) , ] )
 
 scens <- as.character(c())
 scens <- c( scens, "read CML14_bslQuantSm" )
-CML_bsl <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsCa ) , ] )
+CML_bsl_Ca <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsCa ) , ] )
 
 
 #######################################
@@ -121,45 +128,45 @@ time_start <- proc.time()
 
 WAA_meth  <- "WAAVal" 
 par_names <- c("k", "alp")
-# par_init  <- c(0.68, 0.34)
-par_init <-  c(0.697, 0.502)
+par_init  <- c(0.68, 0.34)   # from Valtr et al., 2019
+# par_init <-  c(0.697, 0.502)   # from "022_Adj_04_corr60min_cal_perAll" optimization
 lower     <- c( 0.001, 0.01 )
 upper     <- c( 3, 3 ) 
 max.call  <- 1
 
 par_opt_all <- data.frame(  matrix(vector(), 0, length(par_names))   );  colnames(par_opt_all) <- par_names;   
-for ( i_link in colnames( CML_base )[ ! colnames( CML_base ) %in% c("id", "time") ] ) {
+for ( i_link in colnames( CML_bsl_Ca )[ ! colnames( CML_bsl_Ca ) %in% c("id", "time") ] ) {
   i_link <- strsplit( i_link, "_-_" )[[1]][1]
   
   #######################################
   ## selects data for the given CML
   scens <- as.character(c())
-  scens <- c( scens, paste0("CML_base__single-", i_link) )
-  CML_base_link <- sup.rain.data( scens = scens )
+  scens <- c( scens, paste0("CML_bsl_Ca__single-", i_link) )
+  CML_bsl_Ca_link <- sup.rain.data( scens = scens )
   
   #######################################
   ## defines the function to be minimized
   WAA_inf <- function(pars) {
     
-    mod.scens <- as.character(c())
+    scens <- as.character(c())
     
     pars_str <- paste(par_names[1], pars[1], par_names[2], pars[2], sep = "-")
     proc_meth <- paste0(WAA_meth, "-", pars_str, "--AttSpec--AtoR--aggregby-min-60")
     
-    mod.scens <- c( mod.scens, paste0( "CML_base_link__", proc_meth ) )
-    sup.rain.data <- sup.rain.data( scens = mod.scens )
+    scens <- c( scens, paste0( "CML_bsl_Ca_link__", proc_meth ) )
+    newRain <- sup.rain.data( scens = scens )
     
     
     #######################################
     ## calculates performance statistics
     out_vec <- c()
-    for ( i_col in colnames( sup.rain.data[   !colnames(sup.rain.data) %in% c("time", "id") ] ) ) {
+    for ( i_col in colnames( newRain[   !colnames(newRain) %in% c("time", "id") ] ) ) {
       
-      noNAs <-  !is.na(sup.rain.data[i_col]) 
-      mod <- sup.rain.data[i_col] [ noNAs ] 
-      obs <- remRGs$remRGs_mean3 [ noNAs ]
+      noNAs <-  !is.na(newRain[i_col]) 
+      mod <- newRain[i_col] [ noNAs ] 
+      obs <- refRain_Ca[ , ! colnames( refRain_Ca ) %in% c("id", "time") ] [ noNAs ]
       
-      out_vec <- c( out_vec,  sqrt( mean( (mod-obs)^2 ) ) )
+      out_vec <- c( out_vec,  sqrt( mean( (mod-obs)^2 ) ) )  # RMSE
     }
     
     out <- mean( out_vec )
@@ -189,29 +196,45 @@ time_end   <- proc.time(); time_taken <- time_end - time_start; time_taken
 
 
 #####################################################################################################################
-## Rainfall-Rainfall evaluation
+## Evaluates using the "Pre" events
 
 #######################################
 ## defines data to be evaluated
-CML_base_Pre <- match_with_periods(raindata = CML_base_whole, periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
+## applies the selected processing method - parameters optimized above
+scens <- as.character(c())
+scens <- c( scens, "read CML14_bslQuantSm" )
+CML_bsl_Pre <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
 
-mod.scens <- as.character(c())
+scens <- as.character(c())
 for ( i_link in rownames(par_opt_all) ) {
   
   pars_str  <- paste( par_names[1], par_opt_all[i_link,][1], par_names[2], par_opt_all[i_link,][2], sep = "-")
-  proc_meth <- paste0(WAA_meth, "-", pars_str, "--AttSpec--AtoR--aggregby-min-60")
+  proc_meth <- paste0(WAA_meth, "-", pars_str, "--AttSpec--AtoR")
   
-  mod.scens <- c( mod.scens, paste0( "CML_base_Pre__single-", i_link, "--", proc_meth ) )
+  scens <- c( scens, paste0( "CML_bsl_Pre__single-", i_link, "--", proc_meth ) )
 }
-sup.group.res_rain <- sup.rain.data( scens = mod.scens )
+newRain <- sup.rain.data( scens = scens )
+
+
+#########################################################################
+## Rainfall-Rainfall evaluation
 
 #######################################
-## defines data to be used as reference
+## defines data to be used as the reference
 scens <- as.character(c())
-scens <- c( scens, "read remRGs_mean3__aggregby-min-60" )
-remRGs_Pre <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
-sup.group.res_rain["Qobs"] <- remRGs_Pre[ !colnames(remRGs_Pre) %in% c( "id", "time" ) ] 
+scens <- c( scens, "read locRGs_smooth__mean3loc--aggregby-min-60" )
+refRain_Pre <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
+
+
+#######################################
+## defines data to be evaluated
+scens <- as.character(c())
+scens <- c( scens, "newRain__aggregby-min-60" )
+sup.group.res_rain <- sup.rain.data( scens = scens )
+
+sup.group.res_rain["Qobs"] <- refRain_Pre[ !colnames(refRain_Pre) %in% c( "id", "time" ) ] 
 sup.group.res_rain["sd_Qobs"] <- NA[]
+
 
 #######################################
 ## calculates timestamps
@@ -251,41 +274,14 @@ for ( i_subset in names(events.subsets) ) {
 }
 
 
-#####################################################################################################################
+#########################################################################
 ## Rainfall-Runoff simulations and evaluation
 
 #######################################
-## reads rainfall data for desired time periods - "Pre" events
-## applies the selected processing method and deals with NAs - parameters optimized above
-CML_baseQuantSmooth_Pre <- match_with_periods(raindata = CML_base_whole, periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
-
-mod.scens <- as.character(c())
-for ( i_link in rownames(par_opt_all) ) {
-  
-  pars_str  <- paste( par_names[1], par_opt_all[i_link,][1], par_names[2], par_opt_all[i_link,][2], sep = "-")
-  proc_meth <- paste0(WAA_meth, "-", pars_str, "--AttSpec--AtoR")
-  
-  mod.scens <- c( mod.scens, paste0( "CML_baseQuantSmooth_Pre__single-", i_link, "--", proc_meth ) )
-}
-
-scens <- as.character(c())
-scens <- c( scens, "read CML12_tpl__keep16paper--meanChan--basInterp" )
-CML_baseInter_Pre <- sup.rain.data( scens = scens,  periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
-
-for ( i_link in rownames(par_opt_all) ) {
-  
-  pars_str  <- paste( par_names[1], par_opt_all[i_link,][1], par_names[2], par_opt_all[i_link,][2], sep = "-")
-  proc_meth <- paste0(WAA_meth, "-", pars_str, "--AttSpec--AtoR")
-  
-  mod.scens <- c( mod.scens, paste0( "CML_baseInter_Pre__single-", i_link, "--", proc_meth ) )
-}
-
-sup.rain.data <- sup.rain.data( scens = mod.scens )
-
-#######################################
 ## runs rainfall-runoff simulations - for all rainfall data specifies above
-sup.group.res <- list(); ThPol3_check <- F
-for ( i_scen in colnames(sup.rain.data)[ !colnames(sup.rain.data) %in% c("time", "id") ] ) {
+if (exists("sup.group.res")) rm(sup.group.res); ThPol3_check <- F
+for ( i_scen in colnames(newRain)[ !colnames(newRain) %in% c("time", "id") ] ) {
+  print( i_scen ); time_start <- proc.time()
   
   #######################################
   ## prepares data for SWMM (or other R-R model)
@@ -305,7 +301,7 @@ for ( i_scen in colnames(sup.rain.data)[ !colnames(sup.rain.data) %in% c("time",
   } else { 
     prodata_rain_name <- i_scen 
   }
-  Rain_File_Tab_Pre  <- setupRainFiles( rain.data.proc = sup.rain.data[ c("time", "id", prodata_rain_name) ], 
+  Rain_File_Tab_Pre  <- setupRainFiles( rain.data.proc = newRain[ c("time", "id", prodata_rain_name) ], 
                                         pack.dir = pack.dir )
   Rain_File_Tab <- Rain_File_Tab_Pre
   
@@ -321,26 +317,21 @@ for ( i_scen in colnames(sup.rain.data)[ !colnames(sup.rain.data) %in% c("time",
   
   #######################################
   ## runs the model 
-  sup.group.res[[ i_scen ]]  <- group.run.noInf(par = par, prodata = prodata, Rain_File_Tab = Rain_File_Tab,
-                                                RRmodel = model.swmm) # model.swmm   model.1res
+  hlpRRsim <- group.run.noInf( par = par, prodata = prodata, Rain_File_Tab = Rain_File_Tab,
+                               RRmodel = model.swmm ) # model.swmm   model.1res
+  
+  #######################################
+  ## reshapes the modelling results
+  colnames(hlpRRsim)[ colnames(hlpRRsim) %in%  "Qmod" ] <- i_scen
+  if ( ! exists(x = "sup.group.res") ) {
+    sup.group.res <- hlpRRsim
+  } else {
+    sup.group.res <- cbind( sup.group.res, hlpRRsim[ ! colnames(hlpRRsim) %in% colnames(sup.group.res) ] )
+  }
+  time_end   <- proc.time(); time_taken <- time_end - time_start; print(time_taken)
 }
-
-#######################################
-## reshapes the modelling results
-sup.group.res <- reshape.res( sup.group.res = sup.group.res)
 sup.group.res$sd_Qobs <- match_with_IDs(rainfall_datfr = flow.data.proc, IDs = eventIDsPre)$sd_Q * 1000    # [m^3/s] --> [l/s]
 
-
-#######################################
-## defines event subsets for statistics
-events.subsets <- list(all       = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 0 )  ] ] ,
-                       strong    = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 12 ) ] ] ,
-                       #strongOLD = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ c(13, 16, 19, 21, 28) ] ] ,
-                       strongest = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 20 ) ] ] ,
-                       medium    = periods$st[ as.character(periods$st) %in% intersect( uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 < 12 ) ],
-                                                                                        uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 5  ) ] ) ] ,
-                       light     = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 < 5 ) ] ]
-)
 
 #######################################
 ## calculates performance statistics
@@ -353,31 +344,31 @@ for ( i_subset in names(events.subsets) ) {
 
 
 
-#######################################
+#####################################################################################################################
 ## exports the data
 for (j in names(events.subsets)) {
-  write.table( statistics_rain_inf [[ j ]]$overview_noEv , paste0(pack.dir, "/stat_rain_noEv_", j ,".csv"),
+  write.table( statistics_rain_inf [[ j ]]$overview_noEv , paste0(out.dir, "/stat_rain_noEv_", j ,".csv"),
                sep = ";", col.names = NA, row.names = TRUE )
-  write.table( statistics_inf [[ j ]]$overview_noEv , paste0(pack.dir, "/stat_runoff_noEv_", j ,".csv"),
+  write.table( statistics_inf [[ j ]]$overview_noEv , paste0(out.dir, "/stat_runoff_noEv_", j ,".csv"),
                sep = ";", col.names = NA, row.names = TRUE )
 }
 for (j in names(statistics_rain_inf$all$overview_ev)) {
-  write.table( statistics_rain_inf$all$overview_ev [[j]] , paste0(pack.dir, "/stat_rain_perEv_",  j, ".csv"),
+  write.table( statistics_rain_inf$all$overview_ev [[j]] , paste0(out.dir, "/stat_rain_perEv_",  j, ".csv"),
                sep = ";", col.names = NA, row.names = TRUE )
-  write.table( statistics_inf$all$overview_ev [[j]] , paste0(pack.dir, "/stat_runoff_perEv_",  j, ".csv"),
+  write.table( statistics_inf$all$overview_ev [[j]] , paste0(out.dir, "/stat_runoff_perEv_",  j, ".csv"),
                sep = ";", col.names = NA, row.names = TRUE )
 }
 
-save.image( file = paste0(pack.dir, "/", Package, ".Rdata") )
+save.image( file = paste0(out.dir, "/", Package, ".Rdata") )
 
 
 
 
-#######################################
+#####################################################################################################################
 ## plots hydrographs
-sup.group.plot.noInf( mod.scens.to.plot = colnames(sup.rain.data)[ !colnames(sup.rain.data) %in% c("time", "id") ][c(1,2,17,18)], 
+sup.group.plot.noInf( mod.scens.to.plot = colnames(newRain)[ !colnames(newRain) %in% c("time", "id") ][c(1,2,4)], 
                       name = paste0( "baseQuantSmooth_vs_baseInter"),
-                      sup.group.res = sup.group.res, sup.rain.data = sup.rain.data, pack.dir = pack.dir )
+                      sup.group.res = sup.group.res, newRain = newRain, out.dir = out.dir )
 dev.off()
 
 

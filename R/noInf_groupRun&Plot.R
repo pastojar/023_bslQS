@@ -1,25 +1,5 @@
 
 ########################################################################################################################
-# reshapes the group modelling results
-
-reshape.res <- function(sup.group.res) {
-  
-  for ( i in 1:length(names(sup.group.res)) ) {
-    
-    if ( i==1 ) { # first iteration
-      group.Qres <- sup.group.res[[i]]
-      names(group.Qres)[ which(names(group.Qres) == "Qmod" ) ] <- names(sup.group.res)[[i]]
-    } else {      # next iterations
-      group.Qres[ names(sup.group.res)[i] ] <- sup.group.res[[i]]$Qmod
-    }
-    
-  }
-  
-  return( group.Qres )
-}
-
-
-########################################################################################################################
 # runs the SWMM R-R model and remebers the results
 
 group.run.noInf <- function(par, prodata, Rain_File_Tab, RRmodel) {
@@ -81,9 +61,9 @@ group.run.noInf <- function(par, prodata, Rain_File_Tab, RRmodel) {
 
 ########################################################################################################################
 
-group.plot.noInf <- function(group.res, rain.data, pack.dir, name) {
+group.plot.noInf <- function(group.res, rain.data, out.dir, name) {
   
-  pdf( paste(pack.dir, "/hydrographs__", name, ".pdf", sep="") )
+  pdf( paste(out.dir, "/hydrographs__", name, ".pdf", sep="") )
   
   for (EventID in names(group.res)) {
     if ( !is.na(group.res[[EventID]]) ) {
@@ -142,122 +122,7 @@ group.plot.noInf <- function(group.res, rain.data, pack.dir, name) {
 
 ########################################################################################################################
 
-zzz_sup.group.plot.noInf <- function(mod.scens.to.plot, name, sup.group.res, sup.rain.data, pack.dir) {
-
-  if ( length(mod.scens.to.plot) > 3) { stop("Too much data sets.") }
-  
-  if ( length( grep("locRGs", mod.scens.to.plot) ) > 0 ) { 
-    mod.scens.to.plot_rain  <- strsplit( mod.scens.to.plot[ grep("locRGs", mod.scens.to.plot) ], "__" )[[1]][1]
-    hlp2 <- paste( mod.scens.to.plot_rain , c("RG1", "RG2", "RG3"), sep="_" ) 
-    mod.scens.to.plot_rain  <- mod.scens.to.plot[ - grep("locRGs", mod.scens.to.plot) ]
-    mod.scens.to.plot_rain  <- c(mod.scens.to.plot_rain, hlp2)      
-  } else {
-    mod.scens.to.plot_rain <- mod.scens.to.plot
-  }
-  sup.rain.data <- sup.rain.data[ c("time", "id", mod.scens.to.plot_rain) ]
-  
-  sup.group.res <- sup.group.res[ c("timestamp", "id", "Qobs", mod.scens.to.plot) ]
-  
-  
-  pdf( paste(pack.dir, "/hydro+hyeto2__", name, ".pdf", sep="") )
-  layout(mat = matrix(c(1,2,3,4,5,6,7,8,9,10), 5, 2, byrow = T) )
-  
-  EventIDs <- unique(as.character(sup.rain.data$id))
-  for ( EventID in EventIDs ) {  # uni.data and good.events are global variables...
-    
-    # rain
-    Rain.all <- match_with_IDs(sup.rain.data, as.POSIXct(EventID, tz="UTC"))
-    ylim <- range( Rain.all[,mod.scens.to.plot_rain], na.rm = T ) [c(2, 1)]
-    
-    i_count_R <- 0
-    for ( i_datasets_rain in mod.scens.to.plot_rain ) {
-      
-      Rain <- Rain.all[ c("time", "id", i_datasets_rain) ]
-      Rain_toPrint <- apply( Rain[ names(Rain)[ !(names(Rain) %in% c("time", "id")) ] ], 1, mean ) 
-      
-      i_count_R <- i_count_R + 1
-      if ( i_count_R == 1 ) {
-        timestamp_Rain_1st <- kimisc::hms.to.seconds(format(Rain$time[1], format="%H:%M:%S")) /3600 #[h]
-        dt <- min(abs( ( kimisc::hms.to.seconds(format(Rain$time[-1], format="%H:%M:%S")) /3600 ) -
-                         ( kimisc::hms.to.seconds(format(Rain$time[-nrow(Rain)], format="%H:%M:%S")) /3600 ) ) )
-        timestamp_Rain <- seq( from = timestamp_Rain_1st, by = dt , length.out = length(Rain$time) ) 
-        
-        par(mar = c(3.2, 3.2, 2.5, 3.2))
-        plot(x = NA, y = NA, xlim = range(timestamp_Rain), ylim = ylim,
-             axes = T, xlab = NA, ylab = NA, type = "n", cex.axis = 0.8,
-             main = paste( match(EventID, EventIDs), EventID, sep = ", ") )
-         
-        mtext(side = 2, line = 2, "Precipitation [mm/h]", cex = 0.6)
-        mtext(side = 1, line = 2, "Time [h]", cex = 0.6)
-        legend(legend = mod.scens.to.plot_rain,
-               x = "bottomright", cex = 0.4, lwd = 1,
-               lty = 1, col = c("green", "red", "blue", "yellow", gray(0.8)) )
-      }
-      else {
-        par(new = T)
-      }
-      
-      lines(x = timestamp_Rain, y = Rain_toPrint, col = c("green", "red", "blue", "yellow", gray(0.8))[i_count_R], pch = 20, lwd = 0.6 )
-      
-    }
-    
- 
-    # discharge
-    if ( is.character(sup.group.res$id[1]) ) {
-      sup.group.res$id <- as.POSIXct(sup.group.res$id , tz="UTC")
-    }
-    
-    Qres <- match_with_IDs(sup.group.res, as.POSIXct(EventID, tz="UTC"))
-    if ( length(Qres[,1]) != 0 ) {
-      Qobs <- Qres$Qobs
-      
-      ylim <- c( 0, 1.13 * max( Qres[, c("Qobs", mod.scens.to.plot)], na.rm = T ) )
-      
-      i_count_Q <- 0
-      for ( i_datasets_Q in mod.scens.to.plot ) {
-        
-        Qmod <- Qres[[i_datasets_Q]]
-        
-        i_count_Q <- i_count_Q + 1
-        if ( i_count_Q == 1 ) {
-          timestamp_Q    <- Qres$timestamp
-          
-          par(mar = c(3.2, 3.2, 2.5, 3.2))
-          plot(x= NA, y = NA, xlim = range(timestamp_Q), ylim = ylim, ylab = NA, xlab = NA, type = "n", cex.axis = 0.8)
-          mtext(side = 2, line = 2, "Discharge [l/s]", cex = 0.6)
-          mtext(side = 1, line = 2, "Time [h]", cex = 0.6)
-          
-          legend(legend = mod.scens.to.plot,
-                 x = "topright", cex = 0.4, lwd = 1,
-                 pch = c(NA, NA, NA, 1), lty = c(1, 1, 1, NA),
-                 col = c("green", "red", "blue") )
-          
-          # observed
-          points(x = timestamp_Q, y = Qobs, lwd = 0.6, col = gray(0.7), cex = 0.6)
-        }
-        else {
-          par(new = T)
-        }
-        
-        # modelled
-        lines(x = timestamp_Q, y = Qmod, col = c("green", "red", "blue")[i_count_Q], lwd = 0.6)
-      }
-    }
-    else {
-      plot(x =50, y = 50, type = "n", xlab = "", ylab = "")
-      legend("topleft", legend = "not simulated")
-    }
-  }
-  
-  dev.off()
-
-  
-}
-
-
-########################################################################################################################
-
-sup.group.plot.noInf <- function(mod.scens.to.plot, name, sup.group.res, sup.rain.data, pack.dir) {
+sup.group.plot.noInf <- function(mod.scens.to.plot, name, sup.group.res, newRain, out.dir) {
   
   # manages the number of scenarios to be plotted
   if ( length(mod.scens.to.plot) > 4) { stop("Too much data sets.") }
@@ -267,13 +132,13 @@ sup.group.plot.noInf <- function(mod.scens.to.plot, name, sup.group.res, sup.rai
   } else {
     mod.scens.to.plot_rain <- mod.scens.to.plot
   }
-  sup.rain.data <- sup.rain.data[ c("time", "id", mod.scens.to.plot_rain) ]
+  newRain <- newRain[ c("time", "id", mod.scens.to.plot_rain) ]
   
   sup.group.res <- sup.group.res[ c("timestamp", "id", "Qobs", "sd_Qobs", mod.scens.to.plot) ]
   
   
   
-  pdf( paste0(pack.dir, "/hydro+hyeto2__", name, ".pdf"),
+  pdf( paste0(out.dir, "/hydro+hyeto2__", name, ".pdf"),
        pointsize = 8, paper = "a4", height = 11.69 , width =  8.27 )
   
   layout(mat = matrix(c(1,1,2,3,4,5,6,7,8,9), 5, 2, byrow = T), heights = c(0.8,2,2,2,2) )
@@ -294,12 +159,12 @@ sup.group.plot.noInf <- function(mod.scens.to.plot, name, sup.group.res, sup.rai
   
   
   i_plot <- 0
-  EventIDs <- unique(as.character(sup.rain.data$id))
+  EventIDs <- unique(as.character(newRain$id))
   for ( EventID in as.character( EventIDs[ order( uni.data$RG.overview$meanRain_Rmax10[ uni.data$RG.overview$id %in% EventIDs ] ) ] ) ) {
     i_plot <- i_plot + 1
 
     # selects data for the event
-    Rain.all <- match_with_IDs( sup.rain.data, as.POSIXct(EventID, tz="UTC") )
+    Rain.all <- match_with_IDs( newRain, as.POSIXct(EventID, tz="UTC") )
     Q.all    <- match_with_IDs( sup.group.res, EventID )
     Q.all    <- Q.all[ - which( is.na(Q.all$Qobs) ),  ]
     Qobs     <- Q.all$Qobs
