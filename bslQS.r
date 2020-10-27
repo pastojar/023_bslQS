@@ -78,6 +78,7 @@ flow.data.proc <- flow.data[,c("time","id", "MP1", "sd_Q")]
 "meanof-***"               # takes the mean of the partial matches of the name specified
 
 "ThPol3"                   # for local RGs - 3 Thiessen polygons for SWMM
+"keep3"                    # for local RGs - keeps the same three RGs as ThPl3, but intended for further processing
 "mean3loc"                 # for local RGs - mean of the local RGs at the 3 locations
 
 "keep16paper"              # keeps only data from the 16 CMLs analyzed in the paper (Pastorek et al., 2019)
