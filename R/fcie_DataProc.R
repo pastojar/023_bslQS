@@ -1182,8 +1182,14 @@ mean3loc <- function(rain.data, proc_meth_par) {
 # mean of all time series--------------------------
 meanAll <- function(rain.data, proc_meth_par) {
   
-  out      <- data.frame(time = rain.data$time, id = rain.data$id)
-  out$meanAll <- apply(rain.data[ , !colnames(rain.data) %in% c("time", "id")], 1, mean, na.rm = T  )
+  out <- data.frame(time = rain.data$time, id = rain.data$id)
+  
+  if ( sum( !colnames(rain.data) %in% c("time", "id") ) == 1 ) {
+    out$meanAll <- rain.data[ , !colnames(rain.data) %in% c("time", "id")]
+  } else {
+    out$meanAll <- apply(rain.data[ , !colnames(rain.data) %in% c("time", "id")], 1, mean, na.rm = T  )
+  }
+  
   out$meanAll <- round( out$meanAll, digits = 3 )
   
   return(out)

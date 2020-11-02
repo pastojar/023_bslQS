@@ -2,12 +2,9 @@ Package: bsl.QS
 Title: bsl.QS
 Version: 0.0.0.9000
 Authors@R: person("Jaroslav", "Pastorek", email = "first.last@example.com", role = c("aut", "cre"))
-Description: 
+Description:
     derived from "Adj.05.baseMartin"
-Depends: R (>= 3.2.2)
-License: What license is it under?
-LazyData: true
-Imports:
+Depends: R (>= 3.2.2),
     kimisc,
     DiceDesign,
     sensitivity,
@@ -17,5 +14,8 @@ Imports:
     truncnorm,
     zoo,
     gsl,
-    rootSolve
-
+    rootSolve,
+    dplyr
+License: What license is it under?
+LazyData: true
+Imports:

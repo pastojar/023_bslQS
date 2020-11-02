@@ -36,6 +36,8 @@ periods     <-  uni.data$RG.overview[ good.events,  ] [, c("st", "en") ]
 set.seed(1); which_events <- rbinom(n = length(good.events) , size = 1, prob = 0.5)
 eventIDsCa    <- as.character( periods$st[ !which_events ] )                     # desired events for CALIBRATION  
 eventIDsPre   <- setdiff( as.character( periods$st ) , eventIDsCa )   # desired events for PREDICTION
+rownames(periods) [ as.character(periods$st) %in% eventIDsCa ]  <- eventIDsCa
+rownames(periods) [ as.character(periods$st) %in% eventIDsPre ] <- eventIDsPre
 
 
 #######################################
@@ -214,148 +216,96 @@ for ( i_link in rownames(par_opt_all) ) {
 }
 newRain <- sup.rain.data( scens = scens )
 
-
-#########################################################################
-## Rainfall-Rainfall evaluation
-
-#######################################
-## defines data to be used as the reference
-scens <- as.character(c())
-scens <- c( scens, "read locRGs_smooth__mean3loc--aggregby-min-60" )
-refRain_Pre <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsPre ) , ] )
-
-
-#######################################
-## defines data to be evaluated
-scens <- as.character(c())
-scens <- c( scens, "newRain__aggregby-min-60" )
-sup.group.res_rain <- sup.rain.data( scens = scens )
-
-sup.group.res_rain["Qobs"] <- refRain_Pre[ !colnames(refRain_Pre) %in% c( "id", "time" ) ] 
-sup.group.res_rain["sd_Qobs"] <- NA[]
-
-
-#######################################
-## calculates timestamps
-sup.group.res_rain$id <- as.character(sup.group.res_rain$id)
-sup.group.res_rain["timestamp"] <- NA[]
-for ( i_id in unique(sup.group.res_rain$id) ) {   # for every selected event
-  i_id <- as.POSIXct(i_id, tz="UTC")
-  
-  event_data <- match_with_IDs(rainfall_datfr = sup.group.res_rain, IDs = i_id) # selects data for the given event using its ID
-  
-  time_re <- as.POSIXct(event_data$time, format="%d/%m/%Y %H:%M",tz="")
-  shifts <- as.numeric( (time_re - time_re[1]) / 3600)
-  origo  <- kimisc::hms.to.seconds( format( time_re[1] , format="%H:%M:%S" ) ) /3600 # [h]
-  t.grid <- format(origo + shifts, nsmall = 6)
-  
-  sup.group.res_rain[ sup.group.res_rain$time %in% event_data$time , "timestamp" ] <- as.numeric(t.grid)
-}
-
 #######################################
 ## defines event subsets for statistics
 events.subsets <- list(all       = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 0 )  ] ] ,
                        strong    = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 12 ) ] ] ,
-                       #strongOLD = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ c(13, 16, 19, 21, 28) ] ] ,
                        strongest = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 20 ) ] ] ,
                        medium    = periods$st[ as.character(periods$st) %in% intersect( uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 < 12 ) ],
                                                                                         uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 5  ) ] ) ] ,
                        light     = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 < 5 ) ] ]
 )
 
+
 #######################################
-## calculates performance statistics
-statistics_rain_inf <- list()
-for ( i_subset in names(events.subsets) ) {
-  hlp <- match_with_IDs( rainfall_datfr = sup.group.res_rain, IDs = events.subsets[[i_subset]] ); 
-  hlp$id <- as.character(hlp$id)
-  statistics_rain_inf[[i_subset]] <- simple.stats.sup.group( sup.group.res = hlp )  
-}
+## Rainfall-Rainfall evaluation
+
+newRain_RainRain <- Eval_rain_rain( data_ref = sup.rain.data( scens = "read locRGs_smooth__mean3loc--aggregby-min-60", 
+                                                              periods = periods[ eventIDsPre, ] ), 
+                                    data_new = sup.rain.data( scens = "newRain__aggregby-min-60" ), 
+                                    events.subsets = events.subsets ) 
 
 
-
-#########################################################################
+#######################################
 ## Rainfall-Runoff simulations and evaluation
 
+newRain_RainRunoff <- Eval_rain_runoff( data_flow = flow.data.proc, 
+                                        data_new  = newRain, 
+                                        package = package ) 
+  
+
+
+
+
+
+#####################################################################################################################
+## Evaluates using the "Pre" events
+
 #######################################
-## runs rainfall-runoff simulations - for all rainfall data specifies above
-if (exists("sup.group.res")) rm(sup.group.res); ThPol3_check <- F
-for ( i_scen in colnames(newRain)[ !colnames(newRain) %in% c("time", "id") ] ) {
-  print( i_scen ); time_start <- proc.time()
-  
-  #######################################
-  ## prepares data for SWMM (or other R-R model)
-  Urquell <- system.file("swmm", "inpfile.inp", package = package) # path to the catchment model
-  
-  prodata <- list(); prodata$Pre <- list();
-  prodata$Pre  <- setupSWMMX( eventIDs = eventIDsPre, flow.data.proc = match_with_IDs(rainfall_datfr = flow.data.proc, IDs = eventIDsPre), 
-                              Urquell = Urquell, package = package )
-  
-  #######################################
-  ## prepares rainfall files for SWMM (or other R-R model)
-  if ( grepl("ThPol3", i_scen) ) {
-    if ( ThPol3_check == T ) { next() }
-    i_scen <- substr(i_scen, 7, nchar(i_scen))
-    ThPol3_check <- T
-    prodata_rain_name <- paste0( c("RG1", "RG2", "RG3"), "_-_", i_scen  )
-  } else { 
-    prodata_rain_name <- i_scen 
-  }
-  Rain_File_Tab_Pre  <- setupRainFiles( rain.data.proc = newRain[ c("time", "id", prodata_rain_name) ], 
-                                        package = package )
-  Rain_File_Tab <- Rain_File_Tab_Pre
-  
-  #######################################
-  ## defines SWMM model parameters to be used   
-  ## ! When modifying, do not forget to change also parameters in modelSWMM and CaPre and .awk file !
-  par      <- c(#mult.imp = 1, #mult.wid = 1, 
-    mult.slo = 1, 
-    mult.Nim = 1, 
-    mult.Sim = 1 
-    #mult.Spe = 1, #mult.Pze = 1, #mult.rou = 1
-  )
-  
-  #######################################
-  ## runs the model 
-  hlpRRsim <- group.run.noInf( par = par, prodata = prodata, Rain_File_Tab = Rain_File_Tab,
-                               RRmodel = model.swmm ) # model.swmm   model.1res
-  
-  #######################################
-  ## reshapes the modelling results
-  colnames(hlpRRsim)[ colnames(hlpRRsim) %in%  "Qmod" ] <- i_scen
-  if ( ! exists(x = "sup.group.res") ) {
-    sup.group.res <- hlpRRsim
-  } else {
-    sup.group.res <- cbind( sup.group.res, hlpRRsim[ ! colnames(hlpRRsim) %in% colnames(sup.group.res) ] )
-  }
-  time_end   <- proc.time(); time_taken <- time_end - time_start; print(time_taken)
+## defines data to be evaluated - CML combinations
+## applies the selected processing method - parameters optimized above
+
+NSEord <- newRain_RainRunoff$statistics$all$overview_noEv %>%
+  dplyr::select( NSE )
+NSEord <- NSEord[ order(NSEord$NSE, decreasing = T) , , drop = F ]
+newRain_RE <- cbind(newRain[c("time", "id")] , newRain[ ! names(newRain) %in% c("time", "id") ] [rownames(NSEord)]  )
+
+scens <- as.character(c())
+for ( i_n in nrow(NSEord):1 ) {
+  assign(  paste0("newRain_best", i_n)  ,  cbind(newRain_RE[c("time", "id")] , newRain_RE[ ! names(newRain_RE) %in% c("time", "id") ][1:i_n] )  )
+  scens <- c( scens, paste0("newRain_best", i_n, "__meanAll") )
 }
-sup.group.res$sd_Qobs <- match_with_IDs(rainfall_datfr = flow.data.proc, IDs = eventIDsPre)$sd_Q * 1000    # [m^3/s] --> [l/s]
+
+newRainComb <- sup.rain.data(scens = scens)
 
 
 #######################################
-## calculates performance statistics
-statistics_inf <- list()
-for ( i_subset in names(events.subsets) ) {
-  hlp <- match_with_IDs( rainfall_datfr = sup.group.res, IDs = events.subsets[[i_subset]] ); 
-  hlp$id <- as.character(hlp$id)
-  statistics_inf[[i_subset]] <- simple.stats.sup.group( sup.group.res = hlp )  
-}
+## Rainfall-Rainfall evaluation
+
+newRainComb_RainRain <- Eval_rain_rain( data_ref = sup.rain.data( scens = "read locRGs_smooth__mean3loc--aggregby-min-60", 
+                                                                  periods = periods[ eventIDsPre, ] ), 
+                                        data_new = sup.rain.data( scens = "newRainComb__aggregby-min-60" ), 
+                                        events.subsets = events.subsets )
+
+
+#######################################
+## Rainfall-Runoff simulations and evaluation
+
+newRainComb_RainRunoff <- Eval_rain_runoff( data_flow = flow.data.proc, 
+                                            data_new  = newRainComb, 
+                                            package = package ) 
+
+
+
+#####################################################################################################################
+## merges the evaluation results
+merged_RainRain   <- Merge_Eval_rain_rain(   newRain_RainRain , newRainComb_RainRain  ) 
+merged_RainRunoff <- Merge_Eval_rain_runoff( newRain_RainRunoff , newRainComb_RainRunoff  ) 
 
 
 
 #####################################################################################################################
 ## exports the data
 for (j in names(events.subsets)) {
-  write.table( statistics_rain_inf [[ j ]]$overview_noEv , paste0(out.dir, "/stat_rain_noEv_", j ,".csv"),
+  write.table( merged_RainRain$statistics [[ j ]]$overview_noEv , paste0(out.dir, "/stat_rain_noEv_", j ,".csv"),
                sep = ";", col.names = NA, row.names = TRUE )
-  write.table( statistics_inf [[ j ]]$overview_noEv , paste0(out.dir, "/stat_runoff_noEv_", j ,".csv"),
+  write.table( merged_RainRunoff$statistics [[ j ]]$overview_noEv , paste0(out.dir, "/stat_runoff_noEv_", j ,".csv"),
                sep = ";", col.names = NA, row.names = TRUE )
 }
-for (j in names(statistics_rain_inf$all$overview_ev)) {
-  write.table( statistics_rain_inf$all$overview_ev [[j]] , paste0(out.dir, "/stat_rain_perEv_",  j, ".csv"),
+for (j in names(merged_RainRain$statistics$all$overview_ev)) {
+  write.table( merged_RainRain$statistics$all$overview_ev [[j]] , paste0(out.dir, "/stat_rain_perEv_",  j, ".csv"),
                sep = ";", col.names = NA, row.names = TRUE )
-  write.table( statistics_inf$all$overview_ev [[j]] , paste0(out.dir, "/stat_runoff_perEv_",  j, ".csv"),
+  write.table( merged_RainRunoff$statistics$all$overview_ev [[j]] , paste0(out.dir, "/stat_runoff_perEv_",  j, ".csv"),
                sep = ";", col.names = NA, row.names = TRUE )
 }
 
@@ -366,9 +316,9 @@ save.image( file = paste0(out.dir, "/", package, ".Rdata") )
 
 #####################################################################################################################
 ## plots hydrographs
-sup.group.plot.noInf( mod.scens.to.plot = colnames(newRain)[ !colnames(newRain) %in% c("time", "id") ][c(1,2,4)], 
-                      name = paste0( "baseQuantSmooth_vs_baseInter"),
-                      sup.group.res = sup.group.res, newRain = newRain, out.dir = out.dir )
+sup.group.plot.noInf( mod.scens.to.plot = colnames(merged_RainRunoff$RainData)[ !colnames(merged_RainRunoff$RainData) %in% c("time", "id") ][c(1,2,20,21)], 
+                      name = paste0( "noCal"),
+                      sup.group.res = merged_RainRunoff$FlowData, newRain = merged_RainRunoff$RainData, out.dir = out.dir )
 dev.off()
 
 

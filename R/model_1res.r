@@ -58,7 +58,7 @@ model.1res <- function(par, L, inp.file)
     
   # get rain data:
   # --------------
-  rain.path <- paste(substr(inp.file, 1, nchar(inp.file)-23), "data/",
+  rain.path <- paste(substr(inp.file, 1, nchar(inp.file)-35), "raindata/",
                      substr(inp.file, nchar(inp.file)-22, nchar(inp.file)-4 ), 
                      "_rain.dat", sep = "")
   rain.all  <- read.csv(rain.path, sep=";", header=T, stringsAsFactors = F)   
