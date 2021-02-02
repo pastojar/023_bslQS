@@ -133,7 +133,7 @@ par_init  <- c(0.68, 0.34)   # from Valtr et al., 2019
 # par_init <-  c(0.697, 0.502)   # from "022_Adj_04_corr60min_cal_perAll" optimization
 lower     <- c( 0.001, 0.01 )
 upper     <- c( 3, 3 ) 
-max.call  <- 1
+max.call  <- 5000
 
 par_opt_all <- data.frame(  matrix(vector(), 0, length(par_names))   );  colnames(par_opt_all) <- par_names;   
 for ( i_link in colnames( CML_bsl_Ca )[ ! colnames( CML_bsl_Ca ) %in% c("id", "time") ] ) {
@@ -194,10 +194,12 @@ for ( i_link in colnames( CML_bsl_Ca )[ ! colnames( CML_bsl_Ca ) %in% c("id", "t
 
 time_end   <- proc.time(); time_taken <- time_end - time_start; time_taken
 
+save.image( file = paste0(out.dir, "/", package, "_cal.Rdata") )
+
 
 
 #####################################################################################################################
-## Evaluates using the "Pre" events
+## Evaluates using the "Pre" events - individual CMLs
 
 #######################################
 ## defines data to be evaluated
@@ -229,7 +231,6 @@ events.subsets <- list(all       = periods$st[ as.character(periods$st) %in% uni
 
 #######################################
 ## Rainfall-Rainfall evaluation
-
 newRain_RainRain <- Eval_rain_rain( data_ref = sup.rain.data( scens = "read locRGs_smooth__mean3loc--aggregby-min-60", 
                                                               periods = periods[ eventIDsPre, ] ), 
                                     data_new = sup.rain.data( scens = "newRain__aggregby-min-60" ), 
@@ -238,7 +239,6 @@ newRain_RainRain <- Eval_rain_rain( data_ref = sup.rain.data( scens = "read locR
 
 #######################################
 ## Rainfall-Runoff simulations and evaluation
-
 newRain_RainRunoff <- Eval_rain_runoff( data_flow = flow.data.proc, 
                                         data_new  = newRain, 
                                         package = package ) 
@@ -246,51 +246,142 @@ newRain_RainRunoff <- Eval_rain_runoff( data_flow = flow.data.proc,
 
 
 
-
-
 #####################################################################################################################
-## Evaluates using the "Pre" events
+## Evaluates using the "Pre" events - CML subsets - NSE
 
 #######################################
-## defines data to be evaluated - CML combinations
+## defines data to be evaluated
 ## applies the selected processing method - parameters optimized above
 
-NSEord <- newRain_RainRunoff$statistics$all$overview_noEv %>%
-  dplyr::select( NSE )
-NSEord <- NSEord[ order(NSEord$NSE, decreasing = T) , , drop = F ]
-newRain_RE <- cbind(newRain[c("time", "id")] , newRain[ ! names(newRain) %in% c("time", "id") ] [rownames(NSEord)]  )
-
-scens <- as.character(c())
-for ( i_n in nrow(NSEord):1 ) {
-  assign(  paste0("newRain_best", i_n)  ,  cbind(newRain_RE[c("time", "id")] , newRain_RE[ ! names(newRain_RE) %in% c("time", "id") ][1:i_n] )  )
-  scens <- c( scens, paste0("newRain_best", i_n, "__meanAll") )
+for ( i_nCML in 1:nrow(newRain_RainRunoff$statistics$all$overview_noEv) ) {
+  lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
+                                            rownames( newRain_RainRunoff$statistics$all$overview_noEv[ order(newRain_RainRunoff$statistics$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML]
+                                           ) ] 
+  if ( i_nCML == 1 ) {
+    newRainCombNSE <- meanAll(lol)  
+    colnames(newRainCombNSE)[3] <- paste0("bestNSE_", i_nCML)
+  } else {
+    newRainCombNSE[ paste0("bestNSE_", i_nCML) ] <- meanAll(lol)[3]  
+  }
 }
-
-newRainComb <- sup.rain.data(scens = scens)
-
 
 #######################################
 ## Rainfall-Rainfall evaluation
-
-newRainComb_RainRain <- Eval_rain_rain( data_ref = sup.rain.data( scens = "read locRGs_smooth__mean3loc--aggregby-min-60", 
+newRainCombNSE_RainRain <- Eval_rain_rain( data_ref = sup.rain.data( scens = "read locRGs_smooth__mean3loc--aggregby-min-60", 
                                                                   periods = periods[ eventIDsPre, ] ), 
-                                        data_new = sup.rain.data( scens = "newRainComb__aggregby-min-60" ), 
-                                        events.subsets = events.subsets )
-
+                                           data_new = sup.rain.data( scens = "newRainCombNSE__aggregby-min-60" ), 
+                                           events.subsets = events.subsets )
 
 #######################################
 ## Rainfall-Runoff simulations and evaluation
+newRainCombNSE_RainRunoff <- Eval_rain_runoff( data_flow = flow.data.proc, 
+                                               data_new  = newRainCombNSE, 
+                                               package = package ) 
 
-newRainComb_RainRunoff <- Eval_rain_runoff( data_flow = flow.data.proc, 
-                                            data_new  = newRainComb, 
-                                            package = package ) 
+
+
+#####################################################################################################################
+## Evaluates using the "Pre" events - CML subsets - SCC
+
+#######################################
+## defines data to be evaluated
+## applies the selected processing method - parameters optimized above
+
+for ( i_nCML in 1:nrow(newRain_RainRunoff$statistics$all$overview_noEv) ) {
+  lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
+                                            rownames( newRain_RainRunoff$statistics$all$overview_noEv[ order(newRain_RainRunoff$statistics$all$overview_noEv$SCC, decreasing = T ) , ] ) [1:i_nCML]
+  ) ] 
+  if ( i_nCML == 1 ) {
+    newRainCombSCC <- meanAll(lol)  
+    colnames(newRainCombSCC)[3] <- paste0("bestSCC_", i_nCML)
+  } else {
+    newRainCombSCC[ paste0("bestSCC_", i_nCML) ] <- meanAll(lol)[3]  
+  }
+}
+
+#######################################
+## Rainfall-Rainfall evaluation
+newRainCombSCC_RainRain <- Eval_rain_rain( data_ref = sup.rain.data( scens = "read locRGs_smooth__mean3loc--aggregby-min-60", 
+                                                                     periods = periods[ eventIDsPre, ] ), 
+                                           data_new = sup.rain.data( scens = "newRainCombSCC__aggregby-min-60" ), 
+                                           events.subsets = events.subsets )
+
+#######################################
+## Rainfall-Runoff simulations and evaluation
+newRainCombSCC_RainRunoff <- Eval_rain_runoff( data_flow = flow.data.proc, 
+                                               data_new  = newRainCombSCC, 
+                                               package = package ) 
+
+
+
+#####################################################################################################################
+## Evaluates using the "Pre" events - CML subsets - dV
+
+#######################################
+## defines data to be evaluated
+## applies the selected processing method - parameters optimized above
+
+for ( i_nCML in 1:nrow(newRain_RainRunoff$statistics$all$overview_noEv) ) {
+  lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
+                                            rownames( newRain_RainRunoff$statistics$all$overview_noEv[ order(abs(newRain_RainRunoff$statistics$all$overview_noEv$dV), decreasing = F ) , ] ) [1:i_nCML]
+  ) ] 
+  if ( i_nCML == 1 ) {
+    newRainCombdV <- meanAll(lol)  
+    colnames(newRainCombdV)[3] <- paste0("bestdV_", i_nCML)
+  } else {
+    newRainCombdV[ paste0("bestdV_", i_nCML) ] <- meanAll(lol)[3]  
+  }
+}
+
+#######################################
+## Rainfall-Rainfall evaluation
+newRainCombdV_RainRain <- Eval_rain_rain( data_ref = sup.rain.data( scens = "read locRGs_smooth__mean3loc--aggregby-min-60", 
+                                                                     periods = periods[ eventIDsPre, ] ), 
+                                           data_new = sup.rain.data( scens = "newRainCombdV__aggregby-min-60" ), 
+                                           events.subsets = events.subsets )
+
+#######################################
+## Rainfall-Runoff simulations and evaluation
+newRainCombdV_RainRunoff <- Eval_rain_runoff( data_flow = flow.data.proc, 
+                                               data_new  = newRainCombdV, 
+                                               package = package ) 
+
+
+#####################################################################################################################
+## Evaluates using the "Pre" events - other arbitrary subsets
+
+#######################################
+## defines data to be evaluated
+## applies the selected processing method - parameters optimized above
+
+newRain_arb1 <- newRain[ c(1 ,2, 3, 4, 7, 8) ]  # CMLs # 3, 4, 7, 8
+newRain_arb2 <- newRain[ c(1 ,2, 3, 4, 5, 6, 7) ]  # CMLs # 3, 4, 5, 6, 7
+newRain_arb3 <- newRain[ c(1 ,2, 3, 4, 7, 8, 14) ]  # CMLs # 3, 4, 7, 8, 15
+
+arbs <- 1:3
+scens <- as.character(c())
+scens <- c( scens, paste0("newRain_arb", arbs, "__meanAll") )
+newRainArb <- sup.rain.data(scens = scens)
+
+#######################################
+## Rainfall-Rainfall evaluation
+newRainArb_RainRain <- Eval_rain_rain( data_ref = sup.rain.data( scens = "read locRGs_smooth__mean3loc--aggregby-min-60", 
+                                                                 periods = periods[ eventIDsPre, ] ), 
+                                       data_new = sup.rain.data( scens = "newRainArb__aggregby-min-60" ), 
+                                       events.subsets = events.subsets )
+
+#######################################
+## Rainfall-Runoff simulations and evaluation
+newRainArb_RainRunoff <- Eval_rain_runoff( data_flow = flow.data.proc, 
+                                           data_new  = newRainArb, 
+                                           package = package ) 
 
 
 
 #####################################################################################################################
 ## merges the evaluation results
-merged_RainRain   <- Merge_Eval_rain_rain(   newRain_RainRain , newRainComb_RainRain  ) 
-merged_RainRunoff <- Merge_Eval_rain_runoff( newRain_RainRunoff , newRainComb_RainRunoff  ) 
+merged_RainRain   <- Merge_Eval_rain_rain(   newRain_RainRain , newRainCombNSE_RainRain, newRainCombSCC_RainRain, newRainCombdV_RainRain, newRainArb_RainRain  ) 
+merged_RainRunoff <- Merge_Eval_rain_runoff( newRain_RainRunoff , newRainCombNSE_RainRunoff, newRainCombSCC_RainRunoff, newRainCombdV_RainRunoff, newRainArb_RainRunoff  ) 
 
 
 
@@ -317,7 +408,7 @@ save.image( file = paste0(out.dir, "/", package, ".Rdata") )
 #####################################################################################################################
 ## plots hydrographs
 sup.group.plot.noInf( mod.scens.to.plot = colnames(merged_RainRunoff$RainData)[ !colnames(merged_RainRunoff$RainData) %in% c("time", "id") ][c(1,2,20,21)], 
-                      name = paste0( "noCal"),
+                      name = paste0( "remRGsMean_60"),
                       sup.group.res = merged_RainRunoff$FlowData, newRain = merged_RainRunoff$RainData, out.dir = out.dir )
 dev.off()
 
