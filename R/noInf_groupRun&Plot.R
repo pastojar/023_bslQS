@@ -1,4 +1,76 @@
 
+##################################################################################################################################################
+
+PrepNRunRain_runoff <- function( data_flow, data_new , package , RRmodel = model.swmm  ){  
+  ## prepares and runs rainfall-runoff simulations for specified rainfall data
+  ##
+  ## data_flow - discharge data to be used as the reference
+  ## data_new - rainfall data to be run
+  ## package
+  ## RRmodel -  model.swmm  or  model.1res
+  
+  
+  #######################################
+  ## runs rainfall-runoff simulations - 
+  ThPol3_check <- F
+  for ( i_scen in colnames(data_new)[ !colnames(data_new) %in% c("time", "id") ] ) {
+    print( i_scen )
+    
+    #######################################
+    ## prepares data for SWMM (or other R-R model)
+    Urquell <- system.file("swmm", "inpfile.inp", package = package) # path to the swmm catchment model
+    
+    eventIDs <- as.character( unique( data_new$id ) )
+    
+    prodata <- list(); prodata$Pre <- list();
+    prodata$Pre  <- setupSWMMX( eventIDs = eventIDs, flow.data.proc = match_with_IDs(rainfall_datfr = data_flow, IDs = eventIDs), 
+                                Urquell = Urquell, package = package )
+    
+    #######################################
+    ## prepares rainfall files for SWMM (or other R-R model)
+    if ( grepl("ThPol3", i_scen) ) {
+      if ( ThPol3_check == T ) { next() }
+      i_scen <- substr(i_scen, 7, nchar(i_scen))
+      ThPol3_check <- T
+      prodata_rain_name <- paste0( c("RG1", "RG2", "RG3"), "_-_", i_scen  )
+    } else { 
+      prodata_rain_name <- i_scen 
+    }
+    Rain_File_Tab_Pre  <- setupRainFiles( rain.data.proc = data_new[ c("time", "id", prodata_rain_name) ], 
+                                          package = package )
+    Rain_File_Tab <- Rain_File_Tab_Pre
+    
+    #######################################
+    ## defines SWMM model parameters to be used   
+    ## ! When modifying, do not forget to change also parameters in modelSWMM and CaPre and .awk file !
+    par      <- c(#mult.imp = 1, #mult.wid = 1, 
+      mult.slo = 1, 
+      mult.Nim = 1, 
+      mult.Sim = 1 
+      #mult.Spe = 1, #mult.Pze = 1, #mult.rou = 1
+    )
+    
+    #######################################
+    ## runs the model 
+    hlpRRsim <- group.run.noInf( par = par, prodata = prodata, Rain_File_Tab = Rain_File_Tab,
+                                 RRmodel = RRmodel ) # model.swmm   model.1res
+    
+    #######################################
+    ## reshapes the modelling results
+    colnames(hlpRRsim)[ colnames(hlpRRsim) %in%  "Qmod" ] <- i_scen
+    if ( ! exists(x = "sup.group.res") ) {
+      sup.group.res <- hlpRRsim
+    } else {
+      sup.group.res <- cbind( sup.group.res, hlpRRsim[ ! colnames(hlpRRsim) %in% colnames(sup.group.res) ] )
+    }
+  }
+  sup.group.res$sd_Qobs <- match_with_IDs(rainfall_datfr = data_flow, IDs = eventIDs)$sd_Q * 1000    # [m^3/s] --> [l/s]
+  
+  return( sup.group.res )
+}
+
+
+
 ########################################################################################################################
 # runs the SWMM R-R model and remebers the results
 

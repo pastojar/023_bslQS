@@ -1,3 +1,62 @@
+#######################################
+## overview of available attenuation data and rainfall data 
+## and of methods for processing the data
+
+# rain_data_name
+"locRGs"                        # local RGs (7 RGs at 5 locations) - all available data
+"locRGs_smooth"                 # local RGs (7 RGs at 5 locations) - all available data - smooth
+"remRGs_all"                    # remote RGs (all 23 gauges) - data from a 3-year period
+"remRGs_mean3"                  # remote RGs (mean of the closest 3 - numbers 10, 13, and 22) - data from a 3-year period
+
+"CML4_kR"                       # CML (25 links) data from a 3-year period with k-R model
+"CML5_cor15"                    # CML (19 links) data from a 3-year period corrected by remote RGs (15 min)
+"CML5_cor60"                    # CML (19 links) data from a 3-year period corrected by remote RGs (60 min)
+"CML6_kR_noWAA"                 # CML (25 links) data from a 3-year period with k-R model, WAA = 0
+"CML7_varWAA"                   # CML (25 links) data from a 3-year period with k-R model, various WAA (from 0 to 3 dB)
+"CML08_varAlp"                  # CML (25 links) data from a 3-year period with k-R model, various Alpha parameter, WAA=1.4
+"CML09_drywet"                  # CML (25 links) data from a 3-year period with k-R model, new baseline B (??) , various WAA (from 0 to 3 dB), Alpha by ICU
+"CML10_linWAA"                  # CML (25 links) data from a 3-year period with k-R model, WAA = 1.4  BUT multiplied by a factor growing lineraly with (tot. attenuation - baseline)
+"CML11_only_A"                  # TPL3, (minus) baseline accord. to Fenicia, mean of the 2 channels
+"CML12_tpl"                     # TPL3, single channels
+"CML14_bslQuantSm"              # CML after baseline separation using "baseQuantSmooth", 16 link, mean of the two channels
+
+# rain_data_proc_meth
+"noProc"                   # no processing
+"meanAll"                  # mean of all time series
+"aggregby-min-5"           # aggregates time series to a coarser time step
+"aggregbykeepLin-min-15"   # aggregates time series to a coarser time step but disaggregates it back afterwards using linear interpolation
+"single-***"               # selects a single time series
+"meanof-***"               # takes the mean of the partial matches of the name specified
+
+"ThPol3"                   # for local RGs - 3 Thiessen polygons for SWMM
+"keep3"                    # for local RGs - keeps the same three RGs as ThPl3, but intended for further processing
+"mean3loc"                 # for local RGs - mean of the local RGs at the 3 locations
+
+"keep16paper"              # keeps only data from the 16 CMLs analyzed in the paper (Pastorek et al., 2019)
+"keep19paper"              # keeps only data from the 19 CMLs with paperID (Pastorek et al., 2019)
+"freq-fr-25"               # keeps only data from the CMLs with circa the same frequency
+"mean19"                   # mean of 19 CML time series
+"mean16"                   # mean of 16 CML time series
+"mean04"                   # mean of  4 CML time series
+"meanChan"                 # means of the two channels of the respective CMLs
+"basInterp"                # separating baseline by interpolating between the last and the next dry timestep
+"basFeni-m-0.00568"        # separating baseline with a low-pass filter parameter m (Fenicia et al., 2012)
+"baseQuantSmooth"          # separating baseline calculated as moving quantile window through smooting of hourly data
+"WAAconst-WAA-1.57"        # separating WAA as a constant offset, similarly to Overeem et al. (2011)
+"WAAKhaRo-C-7-d-0.125"     # separating WAA depending on the total measured A; Kharadly and Ross (2001)
+"WAAGaRu-C-7-d-0.55"       # separating WAA depending on the absolute (not specific) rainfall-induced A; see Garcia-Rubia et al. (2011)
+"WAAGaRuSp-C-5.5-d-1.5"    # separating WAA depending on the specific rainfall-induced A; similar to Garcia-Rubia et al. (2011)
+"WAA3GaRuSp-C-7-d-1.5-z-1" # separating WAA depending on the specific rainfall-induced A; added a 3rd parameter "z"
+"WAAKhaRoVal-C-7-d-1.5-z-1"# separating WAA similary like KhaRo, but depending on rainfall intensity R; added a 3rd parameter "z" 
+"WAAVal-k-0.68-alp-0.34"   # separating WAA depending on specific rainfall-induced A; relation proposed by Valtr et al. (2019); numerical eq. solver
+"WAAValpq-p-1.5-q-0.6"     # a modification of the relation proposed by Valtr et al. (2019)
+"WAAlog-a-2-b*5"           # separating WAA depending on specific rainfall-induced A; logarithmic curve, inspired by Valtr et al. (2019)
+"WAASchl-Wmax-2.3-tau-15"  # separating WAA using a time-dependent model of  Schleiss et al. (2013)
+"AttSpec"                  # total attenuation to specific attenuation (divided by the path length)
+"AtoR"                     # specific attenuation to rainfall
+
+
+
 ########################################################################################################################
 
 sup.rain.data <- function ( scens, periods = NULL ) {
