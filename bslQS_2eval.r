@@ -156,10 +156,16 @@ mergedRuno <- merge( merge( merge( merge( newRain_Q,
                                           newRainCombNSE_Q), 
                                           newRainCombSCC_Q)
 
-# merged_RainRain   <- Merge_Eval_rain_rain(   newRain_RainRain , newRainCombNSE_RainRain, newRainCombSCC_RainRain, newRainCombdV_RainRain, newRainArb_RainRain  ) 
-# merged_RainRunoff <- Merge_Eval_rain_runoff( newRain_RainRunoff , newRainCombNSE_RainRunoff, newRainCombSCC_RainRunoff, newRainCombdV_RainRunoff, newRainArb_RainRunoff  ) 
 
 
+#####################################################################################################################
+## plots hydrographs
+sup.group.plot.noInf( name = paste0( "locRGsMean_60"),
+                      mod.scens.to.plot = colnames(mergedRain)[ !colnames(mergedRain) %in% c("time", "id") ][c(1,2,20,21)],
+                      sup.group.res = mergedRuno, 
+                      newRain = mergedRuno,
+                      out.dir = file.path( getwd(), "outputs") )
+dev.off()
 
 
 
@@ -184,7 +190,6 @@ merged_stats <-  Eval_rain_runo( data_rain_ref  = sup.rain.data( scens = "read l
 
 
 
-
 #####################################################################################################################
 ## exports the data
 for (j in names(events.subsets)) {
@@ -200,19 +205,5 @@ for (j in names(merged_stats$statistics_rain$all$overview_ev)) {
                sep = ";", col.names = NA, row.names = TRUE )
 }
 
-save.image( file = paste0(getwd(), "/outputs/", package, "_2eval.Rdata") )
-
-
-
-
-#####################################################################################################################
-## plots hydrographs
-sup.group.plot.noInf( mod.scens.to.plot = colnames(mergedRain)[ !colnames(mergedRain) %in% c("time", "id") ][c(1,2,20,21)], 
-                      name = paste0( "locRGsMean_60"),
-                      sup.group.res = mergedRuno, newRain = mergedRuno, 
-                      out.dir = file.path( getwd(), "outputs") )
-dev.off()
-
-
-
+save( mergedRain, mergedRuno, merged_stats, file = paste0(getwd(), "/outputs/", package, "_2eval.Rdata") )
 

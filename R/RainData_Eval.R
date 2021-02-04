@@ -49,40 +49,6 @@ Eval_rain_runo <- function( data_rain_ref, data_rain_new , data_Q = NULL, events
 }
 
 
-##################################################################################################################################################
-
-Merge_Eval_rain_rain <- function( ...  ) { 
-  
-  vars <- list(...)
-  
-  for ( i_n in 1:(length(vars)-1) ) {
-    
-    if ( i_n == 1 ) { 
-      dat1 <- vars[[1]] 
-    } else {
-      dat1 <- out
-    }
-    dat2 <- vars[[1+i_n]] 
-    
-    
-    out <- dat1
-    
-    out$RainData <- merge(dat1$RainData, dat2$RainData)
-    
-    for ( i_subs in names(out$statistics) ) {
-      out$statistics[[i_subs]]$overview_noEv <- rbind( dat1$statistics[[i_subs]]$overview_noEv, dat2$statistics[[i_subs]]$overview_noEv )
-      
-      for ( i_metr in names(  out$statistics[[i_subs]]$overview_ev ) ) {
-        out$statistics[[i_subs]]$overview_ev[[i_metr]] <- cbind( dat1$statistics[[i_subs]]$overview_ev[[i_metr]] , dat2$statistics[[i_subs]]$overview_ev[[i_metr]] )
-        
-      }
-    }
-  }
-  
-  return(out)
-}
-
-
 
 ##################################################################################################################################################
 
@@ -105,15 +71,26 @@ Merge_Eval_rain_runoff <- function( ...  ) {
     out$RainData <- merge(dat1$RainData, dat2$RainData)
     out$FlowData <- merge(dat1$FlowData, dat2$FlowData)
     
-    for ( i_subs in names(out$statistics) ) {
-      out$statistics[[i_subs]]$overview_noEv <- rbind( dat1$statistics[[i_subs]]$overview_noEv, dat2$statistics[[i_subs]]$overview_noEv )
+    for ( i_subs in names(out$statistics_rain) ) {
+      out$statistics_rain[[i_subs]]$overview_noEv <- rbind( dat1$statistics_rain[[i_subs]]$overview_noEv, dat2$statistics_rain[[i_subs]]$overview_noEv )
       
-      for ( i_metr in names(  out$statistics[[i_subs]]$overview_ev ) ) {
-        out$statistics[[i_subs]]$overview_ev[[i_metr]] <- cbind( dat1$statistics[[i_subs]]$overview_ev[[i_metr]] , dat2$statistics[[i_subs]]$overview_ev[[i_metr]] )
+      for ( i_metr in names(  out$statistics_rain[[i_subs]]$overview_ev ) ) {
+        out$statistics_rain[[i_subs]]$overview_ev[[i_metr]] <- cbind( dat1$statistics_rain[[i_subs]]$overview_ev[[i_metr]] , dat2$statistics_rain[[i_subs]]$overview_ev[[i_metr]] )
         
       }
     }
+    
+    for ( i_subs in names(out$statistics_runo) ) {
+      out$statistics_runo[[i_subs]]$overview_noEv <- rbind( dat1$statistics_runo[[i_subs]]$overview_noEv, dat2$statistics_runo[[i_subs]]$overview_noEv )
+      
+      for ( i_metr in names(  out$statistics_runo[[i_subs]]$overview_ev ) ) {
+        out$statistics_runo[[i_subs]]$overview_ev[[i_metr]] <- cbind( dat1$statistics_runo[[i_subs]]$overview_ev[[i_metr]] , dat2$statistics_runo[[i_subs]]$overview_ev[[i_metr]] )
+        
+      }
+    }
+    
   }
+  
   
   return(out)
 }
