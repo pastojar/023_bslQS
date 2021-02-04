@@ -1,5 +1,6 @@
 
 load( paste0( getwd(), "/outputs/bsl.QS_1cal.Rdata" ) )
+devtools::load_all(".")
 
 
 #####################################################################################################################
@@ -143,7 +144,7 @@ newRainArb_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc,
 
 
 #####################################################################################################################
-## merges the evaluation results
+## merges the rain and runoff data
 mergedRain <- merge( merge( merge( merge( newRain, 
                                           newRainArb ),
                                           newRainCombdV),
@@ -187,15 +188,15 @@ merged_stats <-  Eval_rain_runo( data_rain_ref  = sup.rain.data( scens = "read l
 #####################################################################################################################
 ## exports the data
 for (j in names(events.subsets)) {
-  write.table( merged_RainRain$statistics [[ j ]]$overview_noEv , paste0(out.dir, "/stat_rain_noEv_", j ,".csv"),
+  write.table( merged_stats$statistics_rain [[ j ]]$overview_noEv , paste0(getwd(), "/outputs/", "/stat_rain_noEv_", j ,".csv"),
                sep = ";", col.names = NA, row.names = TRUE )
-  write.table( merged_RainRunoff$statistics [[ j ]]$overview_noEv , paste0(out.dir, "/stat_runoff_noEv_", j ,".csv"),
+  write.table( merged_stats$statistics_runo [[ j ]]$overview_noEv , paste0(getwd(), "/outputs", "/stat_runoff_noEv_", j ,".csv"),
                sep = ";", col.names = NA, row.names = TRUE )
 }
-for (j in names(merged_RainRain$statistics$all$overview_ev)) {
-  write.table( merged_RainRain$statistics$all$overview_ev [[j]] , paste0(out.dir, "/stat_rain_perEv_",  j, ".csv"),
+for (j in names(merged_stats$statistics_rain$all$overview_ev)) {
+  write.table( merged_stats$statistics_rain$all$overview_ev [[j]] , paste0(getwd(), "/outputs", "/stat_rain_perEv_",  j, ".csv"),
                sep = ";", col.names = NA, row.names = TRUE )
-  write.table( merged_RainRunoff$statistics$all$overview_ev [[j]] , paste0(out.dir, "/stat_runoff_perEv_",  j, ".csv"),
+  write.table( merged_stats$statistics_runo$all$overview_ev [[j]] , paste0(getwd(), "/outputs", "/stat_runoff_perEv_",  j, ".csv"),
                sep = ";", col.names = NA, row.names = TRUE )
 }
 
