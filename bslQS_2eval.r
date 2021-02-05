@@ -161,7 +161,7 @@ mergedRuno <- merge( merge( merge( merge( newRain_Q,
 
 #####################################################################################################################
 ## plots hydrographs
-sup.group.plot.noInf( name = paste0( "locRGsMean_60"),
+sup.group.plot.noInf( name = refRain_eval_name,
                       mod.scens.to.plot = colnames(mergedRain)[ !colnames(mergedRain) %in% c("time", "id") ][c(1,2,20,21)],
                       sup.group.res = mergedRuno, 
                       newRain = mergedRuno,

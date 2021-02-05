@@ -54,7 +54,7 @@ flow.data.proc <- flow.data[,c("time","id", "MP1", "sd_Q")]
 ## overview of available attenuation data and rainfall data 
 ## and of methods for processing the data
 ##
-##        SEE    R\\fcie_DataProc.R    !
+##        SEE    R\\fcie_DataProc.R    !      # sup.rain.data()
 
 
 
@@ -66,9 +66,8 @@ flow.data.proc <- flow.data[,c("time","id", "MP1", "sd_Q")]
 #######################################
 ## reads rainfall data for desired time periods,
 ## applies the selected processing method and deals with NAs,
-refRain_Ca_name <- "locRGs_smooth__mean3loc--aggregby-min-60"
 scens <- as.character(c())
-scens <- c( scens, paste0("read ", refRain_Ca_name ) )
+scens <- c( scens, paste0("read ", "locRGs_smooth__mean3loc--aggregby-min-60" ) )
 refRain_Ca <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsCa ) , ] )
 
 scens <- as.character(c())

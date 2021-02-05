@@ -14,11 +14,10 @@ if ( dir.exists( out_dir) == F ) {
 load( paste0( getwd(), "/outputs/bsl.QS_1cal.Rdata" ) )
 load( paste0( getwd(), "/outputs/bsl.QS_2eval.Rdata" ) )
 
+refRain_Ca_name <- names(refRain_Ca)[3]
 if ( grepl( "aggregby-", refRain_Ca_name ) ) {
-  refRain_Ca_name_disag <- sub( "aggregby-", "aggregbykeepLin-", refRain_Ca_name  )  
-} else {
-  refRain_Ca_name_disag <- refRain_Ca_name
-}
+  refRain_Ca_name <- sub( "aggregby-", "aggregbykeepLin-", refRain_Ca_name  )  
+} 
 # plot_name <- "Cal perLink - loc RGs mean - 60 min"
 
 
@@ -65,8 +64,8 @@ for ( j_subset in c("all", "strong", "medium", "light") ) {
     data_hlp$loc <- c( mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [["locRGs_smooth__ThPol3"]] ,
                           mergedref_stats$statistics_runo [[j_subset]]$overview_noEv["locRGs_smooth__ThPol3", j_metric] )
     
-    data_hlp$cal <- c( mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [[refRain_Ca_name_disag]] ,
-                          mergedref_stats$statistics_runo [[j_subset]]$overview_noEv[refRain_Ca_name_disag, j_metric] )
+    data_hlp$cal <- c( mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [[refRain_Ca_name]] ,
+                          mergedref_stats$statistics_runo [[j_subset]]$overview_noEv[refRain_Ca_name, j_metric] )
     
     data_to_plot[["single"]] <- data_hlp
    
