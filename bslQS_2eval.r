@@ -41,7 +41,8 @@ events.subsets <- list(all       = periods$st[ as.character(periods$st) %in% uni
 
 #######################################
 ## Rainfall-Rainfall  and  Rainfall-Runoff   evaluation
-newRain_stats <- Eval_rain_runo( data_rain_ref  = sup.rain.data( scens = "read locRGs_smooth__mean3loc--aggregby-min-60", 
+refRain_eval_name <- "locRGs_smooth__mean3loc--aggregby-min-60"
+newRain_stats <- Eval_rain_runo( data_rain_ref  = sup.rain.data( scens = paste0("read ", refRain_eval_name), 
                                                                  periods = periods[ eventIDsPre, ] ), 
                                  data_rain_new  = sup.rain.data( scens = "newRain__aggregby-min-60" ),
                                  data_Q         = newRain_Q,
@@ -182,7 +183,7 @@ events.subsets <- list(all       = periods$st[ as.character(periods$st) %in% uni
 
 #######################################
 ## Rainfall-Rainfall  and  Rainfall-Runoff   evaluation
-merged_stats <-  Eval_rain_runo( data_rain_ref  = sup.rain.data( scens = "read locRGs_smooth__mean3loc--aggregby-min-60", 
+merged_stats <-  Eval_rain_runo( data_rain_ref  = sup.rain.data( scens = paste0("read ", refRain_eval_name), 
                                                                  periods = periods[ eventIDsPre, ] ), 
                                  data_rain_new  = sup.rain.data( scens = "mergedRain__aggregby-min-60" ),
                                  data_Q         = mergedRuno,

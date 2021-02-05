@@ -66,8 +66,9 @@ flow.data.proc <- flow.data[,c("time","id", "MP1", "sd_Q")]
 #######################################
 ## reads rainfall data for desired time periods,
 ## applies the selected processing method and deals with NAs,
+refRain_Ca_name <- "locRGs_smooth__mean3loc--aggregby-min-60"
 scens <- as.character(c())
-scens <- c( scens, "read locRGs_smooth__mean3loc--aggregby-min-60" )
+scens <- c( scens, paste0("read ", refRain_Ca_name ) )
 refRain_Ca <- sup.rain.data( scens = scens, periods = periods[ which( as.character(periods$st) %in% eventIDsCa ) , ] )
 
 scens <- as.character(c())
