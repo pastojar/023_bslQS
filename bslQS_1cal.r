@@ -32,7 +32,7 @@ good.events <-  setdiff(all.events, union(bad.events, union(NA_for_locRGs, NA_fo
 
 periods     <-  uni.data$RG.overview[ good.events,  ] [, c("st", "en") ]
 
-set.seed(1); which_events <- rbinom(n = length(good.events) , size = 1, prob = 0.5)
+set.seed(75); which_events <- rbinom(n = length(good.events) , size = 1, prob = 0.5)
 eventIDsCa    <- as.character( periods$st[ !which_events ] )                     # desired events for CALIBRATION  
 eventIDsPre   <- setdiff( as.character( periods$st ) , eventIDsCa )   # desired events for PREDICTION
 rownames(periods) [ as.character(periods$st) %in% eventIDsCa ]  <- eventIDsCa
