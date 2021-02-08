@@ -43,6 +43,12 @@ col_CML[ which( freq < 28 ) ] <- gray(0.92)
 col_CML[ which( freq > 28 & freq < 35 ) ] <- gray(0.6)
 col_CML[ which( freq > 35 ) ] <- gray(0.3)
 
+col_Rpeak <- data.frame( Rmax10 = uni.data$RG.overview$meanRain_Rmax10[ uni.data$RG.overview$id %in% eventIDsPre ] , 
+                         row.names = uni.data$RG.overview$id[ uni.data$RG.overview$id %in% eventIDsPre ]  )
+col_Rpeak$col <- round( log(col_Rpeak$Rmax10) / log(max(col_Rpeak$Rmax10  , na.rm = T))  * nrow(col_Rpeak) )
+                        
+
+
 
 #######################################
 ## for all subsets and metrics
@@ -116,10 +122,23 @@ for ( j_subset in c("all", "strong", "medium", "light") ) {
           col_plot <- NA
         }
         
-        boxplot( data_i[ !rownames(data_i) %in% "noEv" , ]  , outline = T, range = 1.5,  # default - 1.5 , to extremes - 0
+        boxplot( data_i[ !rownames(data_i) %in% "noEv" , ]  , outline = T, range = 0,  # default - 1.5 , to extremes - 0
                  names = F, horizontal = F, border = gray(0.2),  cex.axis = 1.2,
                  ylim = as.numeric(ylim[j_metric,]), col = c(col_plot, NA, NA)  )
-        points( x = 1:ncol(data_i), y = data_i["noEv",], pch = "-", cex = 4, col = "red" )
+        
+        for ( i_num in 1:ncol(data_i) ) {
+          i_scen <- colnames(data_i)[i_num]
+          set.seed(1)
+          points( x = jitter(rep(i_num, length(data_i[ !rownames(data_i) %in% "noEv", i_scen])), amount = 0.2 ) ,
+                  y = data_i[ !rownames(data_i) %in% "noEv" , i_scen],
+                  col =   fields::tim.colors(n = round(nrow(col_Rpeak)*1.2), alpha = 0.8)[ col_Rpeak[ rownames(col_Rpeak) %in% rownames(data_i) , "col"]  ] ,
+                  pch = 19,
+                  cex = 1.5,
+                  #ylim = c(y_lim[i_metric, "low"], y_lim[i_metric, "upp"])
+          )
+        }
+        
+        points( x = 1:ncol(data_i), y = data_i["noEv",], pch = "-", cex = 5, col = "magenta" )
         
         # mtext(side = 3, line = 0.2, text = paste0( plot_name, " - ", j_subset, " - ", j_metric ), cex = 1.1)
         mtext(side = 3, line = 0.2, text = names(data_to_plot)[i_data], cex = 1.1)
