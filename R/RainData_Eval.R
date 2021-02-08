@@ -39,9 +39,11 @@ Eval_rain_runo <- function( data_rain_ref, data_rain_new , data_Q = NULL, events
     hlp_rain$id <- as.character(hlp_rain$id)
     statistics_rain[[i_subset]] <- simple.stats.sup.group( sup.group.res = hlp_rain )  
     
-    hlp_runo <- match_with_IDs( rainfall_datfr = data_Q, IDs = events.subsets[[i_subset]] ); 
-    hlp_runo$id <- as.character(hlp_runo$id)
-    statistics_runo[[i_subset]] <- simple.stats.sup.group( sup.group.res = hlp_runo )  
+    if ( is.null(data_Q) ) {  statistics_runo[[i_subset]] <- NULL } else {
+      hlp_runo <- match_with_IDs( rainfall_datfr = data_Q, IDs = events.subsets[[i_subset]] ); 
+      hlp_runo$id <- as.character(hlp_runo$id)
+      statistics_runo[[i_subset]] <- simple.stats.sup.group( sup.group.res = hlp_runo )  
+    }
   }
   
   out <- list( RainData = data_rain_new, FlowData = data_Q, statistics_rain = statistics_rain, statistics_runo = statistics_runo ) 
