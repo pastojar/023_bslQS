@@ -24,11 +24,13 @@ if ( grepl( "aggregby-", refRain_Ca_name ) ) {
 #######################################
 ## loading external data
 ## and merging with the local data
-dir_ref <- "D:/OneDrive - České vysoké učení technické/sim_results/023_bslQS/023_bslQS_04_ref"
+dir_ref <- "D:/OneDrive - České vysoké učení technické/sim_results/023_bslQS/023_bslQS_05_ref"
 Rdata_name <- "bsl.QS_2eval.Rdata"
 load( file.path(dir_ref, Rdata_name) )
 
 mergedref_stats <- Merge_Eval_rain_runoff( merged_stats, ref_stats )
+
+stats_to_plot <- mergedref_stats
 
 
 #######################################
@@ -61,45 +63,45 @@ for ( j_subset in c("all", "strong", "medium", "light") ) {
     data_to_plot <- list()
     
     # single CMLs + ref RGs
-    data_hlp <- mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [ 
-      grep( pattern = "single-#" , x = names( mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]]) ) ]
+    data_hlp <- stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [ 
+      grep( pattern = "single-#" , x = names( stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]]) ) ]
     colnames( data_hlp ) <- unlist( strsplit( colnames( data_hlp ), "_-_" ) ) [c(T,F)]
-    data_hlp["noEv",] <- mergedref_stats$statistics_runo [[j_subset]]$overview_noEv[j_metric] [
-      grep( pattern = "single-#" , x = rownames( mergedref_stats$statistics_runo [[j_subset]]$overview_noEv[j_metric] ) ) , ]
+    data_hlp["noEv",] <- stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] [
+      grep( pattern = "single-#" , x = rownames( stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] ) ) , ]
     
-    data_hlp$loc <- c( mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [["locRGs_smooth__ThPol3"]] ,
-                          mergedref_stats$statistics_runo [[j_subset]]$overview_noEv["locRGs_smooth__ThPol3", j_metric] )
+    data_hlp$loc <- c( stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [["locRGs_smooth__ThPol3"]] ,
+                          stats_to_plot$statistics_runo [[j_subset]]$overview_noEv["locRGs_smooth__ThPol3", j_metric] )
     
-    data_hlp$cal <- c( mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [[refRain_Ca_name]] ,
-                          mergedref_stats$statistics_runo [[j_subset]]$overview_noEv[refRain_Ca_name, j_metric] )
+    data_hlp$cal <- c( stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [[refRain_Ca_name]] ,
+                          stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[refRain_Ca_name, j_metric] )
     
     data_to_plot[["single"]] <- data_hlp
    
    
     # CML combinations - dV
-    data_hlp <- mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [ 
-      grep( pattern = "dV" , x = names( mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]]) ) ]
+    data_hlp <- stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [ 
+      grep( pattern = "dV" , x = names( stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]]) ) ]
     colnames( data_hlp ) <- unlist( strsplit( colnames( data_hlp ), "_" ) ) [c(F,T)]
-    data_hlp["noEv",] <- mergedref_stats$statistics_runo [[j_subset]]$overview_noEv[j_metric] [ 
-      grep( pattern = "dV" , x = rownames( mergedref_stats$statistics_runo [[j_subset]]$overview_noEv[j_metric] ) ) , ]
+    data_hlp["noEv",] <- stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] [ 
+      grep( pattern = "dV" , x = rownames( stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] ) ) , ]
     data_to_plot[["comb - best dV"]] <- data_hlp
     
     
     # CML combinations - NSE
-    data_hlp <- mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [ 
-      grep( pattern = "NSE" , x = names( mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]]) ) ]
+    data_hlp <- stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [ 
+      grep( pattern = "NSE" , x = names( stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]]) ) ]
     colnames( data_hlp ) <- unlist( strsplit( colnames( data_hlp ), "_" ) ) [c(F,T)]
-    data_hlp["noEv",] <- mergedref_stats$statistics_runo [[j_subset]]$overview_noEv[j_metric] [ 
-      grep( pattern = "NSE" , x = rownames( mergedref_stats$statistics_runo [[j_subset]]$overview_noEv[j_metric] ) ) , ]
+    data_hlp["noEv",] <- stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] [ 
+      grep( pattern = "NSE" , x = rownames( stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] ) ) , ]
     data_to_plot[["comb - best NSE"]] <- data_hlp
     
     
     # CML combinations - SCC
-    data_hlp <- mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [ 
-      grep( pattern = "SCC" , x = names( mergedref_stats$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]]) ) ]
+    data_hlp <- stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [ 
+      grep( pattern = "SCC" , x = names( stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]]) ) ]
     colnames( data_hlp ) <- unlist( strsplit( colnames( data_hlp ), "_" ) ) [c(F,T)]
-    data_hlp["noEv",] <- mergedref_stats$statistics_runo [[j_subset]]$overview_noEv[j_metric] [ 
-      grep( pattern = "SCC" , x = rownames( mergedref_stats$statistics_runo [[j_subset]]$overview_noEv[j_metric] ) ) , ]
+    data_hlp["noEv",] <- stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] [ 
+      grep( pattern = "SCC" , x = rownames( stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] ) ) , ]
     data_to_plot[["comb - best SCC"]] <- data_hlp
     
 
