@@ -47,14 +47,14 @@ col_CML[ which( freq > 35 ) ] <- gray(0.3)
 
 col_Rpeak <- data.frame( Rmax10 = uni.data$RG.overview$meanRain_Rmax10[ uni.data$RG.overview$id %in% eventIDsPre ] , 
                          row.names = uni.data$RG.overview$id[ uni.data$RG.overview$id %in% eventIDsPre ]  )
-col_Rpeak$col <- round( log(col_Rpeak$Rmax10) / log(max(col_Rpeak$Rmax10  , na.rm = T))  * nrow(col_Rpeak) )
+col_Rpeak$col <- round( log(col_Rpeak$Rmax10) / log(max(col_Rpeak$Rmax10  , na.rm = T))  * nrow(col_Rpeak) )  + 3  # shifts the colors towards red
                         
 
 
 
 #######################################
 ## for all subsets and metrics
-ylim <- as.data.frame( matrix( nrow = 4,   c( c(0, 1) ,  c(0, 100), c(0.6, 1), 100*c(-0.5, 0.5) ) , byrow = T  ), row.names = c("NSE", "RMSE", "SCC", "dV") )
+ylim <- as.data.frame( matrix( nrow = 4,   c( c(0, 1) ,  c(0, 100), c(0.6, 1), 100*c(-1, 1) ) , byrow = T  ), row.names = c("NSE", "RMSE", "SCC", "dV") )
 for ( j_subset in c("all", "strong", "medium", "light") ) {
   
   for ( j_metric in c("NSE", "RMSE", "SCC", "dV") ) {
@@ -133,7 +133,7 @@ for ( j_subset in c("all", "strong", "medium", "light") ) {
           set.seed(1)
           points( x = jitter(rep(i_num, length(data_i[ !rownames(data_i) %in% "noEv", i_scen])), amount = 0.2 ) ,
                   y = data_i[ !rownames(data_i) %in% "noEv" , i_scen],
-                  col =   fields::tim.colors(n = round(nrow(col_Rpeak)*1.2), alpha = 0.8)[ col_Rpeak[ rownames(col_Rpeak) %in% rownames(data_i) , "col"]  ] ,
+                  col =   fields::tim.colors(n = round(nrow(col_Rpeak)*1.2), alpha = 0.6)[ col_Rpeak[ rownames(col_Rpeak) %in% rownames(data_i) , "col"]  ] ,
                   pch = 19,
                   cex = 1.5,
                   #ylim = c(y_lim[i_metric, "low"], y_lim[i_metric, "upp"])
@@ -149,8 +149,15 @@ for ( j_subset in c("all", "strong", "medium", "light") ) {
         
         abline(h = seq( from = ylim[j_metric,1], to = ylim[j_metric,2], by = (max(ylim[j_metric,]) - min(ylim[j_metric,])) /20 ), 
                col = gray(0.55), lwd = 0.15, lty = 2 ) 
+        # abline(h = 0, 
+        #        col = gray(0.25), lwd = 0.35, lty = 2 )
+        if ( i_data == 1 ) {
+          loc_perf <- data_i[ "noEv", "loc" ] 
+        }
+        abline(h = loc_perf, 
+               col = gray(0.25), lwd = 0.5, lty = 2 )
         
-        abline(v = c(2, 18)+0.5, col = gray(0.8), lwd = 0.3 )
+        abline(v = c(16, 18)+0.5, col = gray(0.8), lwd = 0.3 )
       }
     
     dev.off()

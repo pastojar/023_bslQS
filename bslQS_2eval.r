@@ -49,10 +49,6 @@ newRain_stats <- Eval_rain_runo( data_rain_ref  = sup.rain.data( scens = paste0(
                                  events.subsets = events.subsets ) 
 
 
-lol <- sup.rain.data( scens = c("read locRGs_smooth__mean3loc", "read locRGs_smooth__mean3loc--aggregbykeepLin-min-60"), 
-                      periods = periods[ eventIDsPre, ] )
-lo2 <- sup.rain.data( scens = c("read locRGs_smooth__mean3loc--aggregby-min-60", "read locRGs_smooth__mean3loc--aggregbykeepLin-min-60--aggregby-min-60"), 
-                      periods = periods[ eventIDsPre, ] )
 
 
 #######################################
@@ -167,7 +163,7 @@ mergedRuno <- merge( merge( merge( merge( newRain_Q,
 sup.group.plot.noInf( name = strsplit( names(refRain_Ca)[3], "_-_" )[[1]][2],
                       mod.scens.to.plot = colnames(mergedRain)[ !colnames(mergedRain) %in% c("time", "id") ][c(1,2,20,21)],
                       sup.group.res = mergedRuno, 
-                      newRain = mergedRuno,
+                      newRain = mergedRain,
                       out.dir = file.path( getwd(), "outputs") )
 dev.off()
 
