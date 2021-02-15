@@ -74,6 +74,8 @@ model.swmm <- function(par, L, inp.file)
   
   yM <- yM + 6.3   # BASEFLOW (6.3 l/s); implemented here instead of the .inp file !
   
+  yM <- yM / 1.15  # BIAS correction (bias circa +15%) ; implemented here instead of the .inp file !
+  
   names(yM) = L
   
   return(yM)
