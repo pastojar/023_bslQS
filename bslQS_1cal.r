@@ -14,7 +14,7 @@ package <- environmentName( pack$env )   # name of this package
 ## reads FG and RG statistical overview and CML meta data
 ## ! Decide here about the statistics files (the periods used)  (it defines the rainfall-runoff events)
 uni.data <- read.stats(FG.ov.path  = system.file("extdata", "flow_stats_Q2min_(12_tpl+locRGs_smooth+remRGs)+MP1_H2min.csv", package = package),
-                       RG.ov.path  = system.file("extdata", "rainfall_stats_locRGs_smooth_(12_tpl+locRGs_smooth+remRGs)+MP1_H2min_2mm_short.csv", package = package)
+                       RG.ov.path  = system.file("extdata", "ext_rainfall_stats_locRGs_smooth_(12_tpl+locRGs_smooth+remRGs)+MP1_H2min_2mm_short.csv", package = package)
 )
 uni.data[["CML_meta"]] <- read.csv( system.file( "extdata", "meta_25xCML_complet.csv", package = package ), sep = ";", stringsAsFactors = F )
 
