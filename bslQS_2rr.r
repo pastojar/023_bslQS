@@ -258,54 +258,5 @@ dev.off()
 
 
 
-#######################################
-## defines event subsets for statistics
-events.subsets <- list(all       = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 0 )  ] ] ,
-                       strong    = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 12 ) ] ] ,
-                       strongest = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 20 ) ] ] ,
-                       medium    = periods$st[ as.character(periods$st) %in% intersect( uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 < 12 ) ],
-                                                                                        uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 5  ) ] ) ] ,
-                       light     = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 < 5 ) ] ]
-)
-
-for ( i_agg in c(5, 15, 30, 60) ) {
-  events.subsets [[ paste0( "var_", i_agg, "_1" ) ]]  <-  periods$st[ as.character(periods$st)   %in% 
-                                                                        uni.data$RG.overview$id[ which( uni.data$RG.overview[ , paste0("var_locNrem_", i_agg) ] <= 
-                                                                                                          quantile( uni.data$RG.overview[ , paste0("var_locNrem_", i_agg) ], 0.33 ) )  ] ]
-  
-  events.subsets [[ paste0( "var_", i_agg, "_3" ) ]]  <-  periods$st[ as.character(periods$st)   %in% 
-                                                                        uni.data$RG.overview$id[ which( uni.data$RG.overview[ , paste0("var_locNrem_", i_agg) ] >= 
-                                                                                                          quantile( uni.data$RG.overview[ , paste0("var_locNrem_", i_agg) ], 0.66 ) )  ] ]
-  
-  events.subsets [[ paste0( "var_", i_agg, "_2" ) ]]  <-  periods$st[ ! periods$st %in% c( events.subsets [[ paste0( "var_", i_agg, "_1" ) ]], 
-                                                                                           events.subsets [[ paste0( "var_", i_agg, "_3" ) ]] ) ]  
-}
-
-
-#######################################
-## Rainfall-Rainfall  and  Rainfall-Runoff   evaluation
-merged_stats <-  Eval_rain_runo( data_rain_ref  = sup.rain.data( scens = paste0("read ", refRain_eval_name), 
-                                                                 periods = periods[ eventIDsPre, ] ), 
-                                 data_rain_new  = sup.rain.data( scens = "mergedRain__aggregby-min-60" ),
-                                 data_Q         = mergedRuno,
-                                 events.subsets = events.subsets ) 
-
-
-
-#####################################################################################################################
-## exports the data
-for (j in names(events.subsets)) {
-  write.table( merged_stats$statistics_rain [[ j ]]$overview_noEv , paste0(getwd(), "/outputs/", "/stat_rain_noEv_", j ,".csv"),
-               sep = ";", col.names = NA, row.names = TRUE )
-  write.table( merged_stats$statistics_runo [[ j ]]$overview_noEv , paste0(getwd(), "/outputs", "/stat_runoff_noEv_", j ,".csv"),
-               sep = ";", col.names = NA, row.names = TRUE )
-}
-for (j in names(merged_stats$statistics_rain$all$overview_ev)) {
-  write.table( merged_stats$statistics_rain$all$overview_ev [[j]] , paste0(getwd(), "/outputs", "/stat_rain_perEv_",  j, ".csv"),
-               sep = ";", col.names = NA, row.names = TRUE )
-  write.table( merged_stats$statistics_runo$all$overview_ev [[j]] , paste0(getwd(), "/outputs", "/stat_runoff_perEv_",  j, ".csv"),
-               sep = ";", col.names = NA, row.names = TRUE )
-}
-
-save( mergedRain, mergedRuno, merged_stats, file = paste0(getwd(), "/outputs/", package, "_2eval.Rdata") )
+save( mergedRain, mergedRuno, file = paste0(getwd(), "/outputs/", package, "_2rr.Rdata") )
 
