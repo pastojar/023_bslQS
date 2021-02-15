@@ -31,13 +31,7 @@ newRain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc,
 
 #######################################
 ## defines event subsets for statistics
-events.subsets <- list(all       = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 0 )  ] ] ,
-                       strong    = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 12 ) ] ] ,
-                       strongest = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 20 ) ] ] ,
-                       medium    = periods$st[ as.character(periods$st) %in% intersect( uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 < 12 ) ],
-                                                                                        uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 5  ) ] ) ] ,
-                       light     = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 < 5 ) ] ]
-)
+events.subsets <- list( all = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 0 )] ] )
 
 #######################################
 ## Rainfall-Rainfall  and  Rainfall-Runoff   evaluation
@@ -50,6 +44,9 @@ newRain_stats <- Eval_rain_runo( data_rain_ref  = sup.rain.data( scens = paste0(
 
 
 
+
+#####################################################################################################################
+## Combining the CMLs - runoff statistics
 
 #######################################
 ## defines data to be evaluated - CML subsets - NSE
@@ -121,6 +118,79 @@ newRainCombdV_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc,
 
 
 
+#####################################################################################################################
+## Combining the CMLs - rainfall statistics
+
+#######################################
+## defines data to be evaluated - CML subsets - NSE
+## applies the selected processing method 
+for ( i_nCML in 1:nrow(newRain_stats$statistics_rain$all$overview_noEv) ) {
+  lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
+                                            unlist( strsplit( rownames( newRain_stats$statistics_rain$all$overview_noEv[ order(newRain_stats$statistics_rain$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML] ,
+                                                              "_-_newRain_" ) )[c(T,F)]  ) ] 
+  if ( i_nCML == 1 ) {
+    newRainCombNSE_rain <- meanAll(lol)  
+    colnames(newRainCombNSE_rain)[3] <- paste0("bestNSE_rain_", i_nCML)
+  } else {
+    newRainCombNSE_rain[ paste0("bestNSE_rain_", i_nCML) ] <- meanAll(lol)[3]  
+  }
+}
+
+#######################################
+## prepares and runs rainfall-runoff simulations
+newRainCombNSE_rain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
+                                              data_new  = newRainCombNSE_rain,
+                                              package   = package )
+
+
+
+#######################################
+## defines data to be evaluated - CML subsets - SCC
+## applies the selected processing method 
+for ( i_nCML in 1:nrow(newRain_stats$statistics_rain$all$overview_noEv) ) {
+  lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
+                                            unlist( strsplit( rownames( newRain_stats$statistics_rain$all$overview_noEv[ order(newRain_stats$statistics_rain$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML] ,
+                                                              "_-_newRain_" ) )[c(T,F)]  ) ] 
+  if ( i_nCML == 1 ) {
+    newRainCombSCC_rain <- meanAll(lol)  
+    colnames(newRainCombSCC_rain)[3] <- paste0("bestSCC_rain_", i_nCML)
+  } else {
+    newRainCombSCC_rain[ paste0("bestSCC_rain_", i_nCML) ] <- meanAll(lol)[3]  
+  }
+}
+
+#######################################
+## prepares and runs rainfall-runoff simulations
+newRainCombSCC_rain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
+                                              data_new  = newRainCombSCC_rain,
+                                              package   = package )
+
+
+
+#######################################
+## defines data to be evaluated  - CML subsets - dV
+## applies the selected processing method 
+for ( i_nCML in 1:nrow(newRain_stats$statistics_rain$all$overview_noEv) ) {
+  lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
+                                            unlist( strsplit( rownames( newRain_stats$statistics_rain$all$overview_noEv[ order(newRain_stats$statistics_rain$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML] ,
+                                                              "_-_newRain_" ) )[c(T,F)]  ) ] 
+  if ( i_nCML == 1 ) {
+    newRainCombdV_rain <- meanAll(lol)  
+    colnames(newRainCombdV_rain)[3] <- paste0("bestdV_rain_", i_nCML)
+  } else {
+    newRainCombdV_rain[ paste0("bestdV_rain_", i_nCML) ] <- meanAll(lol)[3]  
+  }
+}
+
+#######################################
+## prepares and runs rainfall-runoff simulations
+newRainCombdV_rain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
+                                             data_new  = newRainCombdV,
+                                             package   = package )
+
+
+
+
 #######################################
 ## defines data to be evaluated - other arbitrary subsets
 ## applies the selected processing method 
@@ -146,15 +216,34 @@ newRainArb_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc,
 #####################################################################################################################
 ## merges the rain and runoff data
 mergedRain <- merge( merge( merge( merge( newRain, 
-                                          newRainArb ),
-                                          newRainCombdV),
-                                          newRainCombNSE), 
-                                          newRainCombSCC)
-mergedRuno <- merge( merge( merge( merge( newRain_Q, 
-                                          newRainArb_Q ),
-                                          newRainCombdV_Q),
-                                          newRainCombNSE_Q), 
+                                                            newRainArb ),
+                                                     newRainCombdV),
+                                              newRainCombNSE), 
+                                       newRainCombSCC)
+
+# mergedRain <- merge(merge(merge(merge( merge( merge( merge( newRain, 
+#                                                             newRainArb ),
+#                                                      newRainCombdV),
+#                                               newRainCombNSE), 
+#                                        newRainCombSCC),
+#                                 newRainCombdV_rain),
+#                           newRainCombNSE_rain), 
+#                     newRainCombSCC_rain)
+
+mergedRuno <-merge( merge( merge( merge( newRain_Q, 
+                                                               newRainArb_Q ),
+                                                        newRainCombdV_Q),
+                                                 newRainCombNSE_Q), 
                                           newRainCombSCC_Q)
+
+# mergedRuno <- merge( merge( merge( merge( merge( merge( merge( newRain_Q, 
+#                                                                newRainArb_Q ),
+#                                                         newRainCombdV_Q),
+#                                                  newRainCombNSE_Q), 
+#                                           newRainCombSCC_Q),
+#                                    newRainCombdV_rain_Q),
+#                             newRainCombNSE_rain_Q), 
+#                      newRainCombSCC_rain_Q)
 
 
 
@@ -178,6 +267,19 @@ events.subsets <- list(all       = periods$st[ as.character(periods$st) %in% uni
                                                                                         uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 > 5  ) ] ) ] ,
                        light     = periods$st[ as.character(periods$st) %in% uni.data$RG.overview$id[ which( uni.data$RG.overview$meanRain_Rmax10 < 5 ) ] ]
 )
+
+for ( i_agg in c(5, 15, 30, 60) ) {
+  events.subsets [[ paste0( "var_", i_agg, "_1" ) ]]  <-  periods$st[ as.character(periods$st)   %in% 
+                                                                        uni.data$RG.overview$id[ which( uni.data$RG.overview[ , paste0("var_locNrem_", i_agg) ] <= 
+                                                                                                          quantile( uni.data$RG.overview[ , paste0("var_locNrem_", i_agg) ], 0.33 ) )  ] ]
+  
+  events.subsets [[ paste0( "var_", i_agg, "_3" ) ]]  <-  periods$st[ as.character(periods$st)   %in% 
+                                                                        uni.data$RG.overview$id[ which( uni.data$RG.overview[ , paste0("var_locNrem_", i_agg) ] >= 
+                                                                                                          quantile( uni.data$RG.overview[ , paste0("var_locNrem_", i_agg) ], 0.66 ) )  ] ]
+  
+  events.subsets [[ paste0( "var_", i_agg, "_2" ) ]]  <-  periods$st[ ! periods$st %in% c( events.subsets [[ paste0( "var_", i_agg, "_1" ) ]], 
+                                                                                           events.subsets [[ paste0( "var_", i_agg, "_3" ) ]] ) ]  
+}
 
 
 #######################################
