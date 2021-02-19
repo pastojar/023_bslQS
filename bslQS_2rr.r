@@ -46,6 +46,39 @@ newRain_stats <- Eval_rain_runo( data_rain_ref  = sup.rain.data( scens = paste0(
 
 
 #####################################################################################################################
+## Combining the CMLs - random combinations
+
+#######################################
+## defines data to be evaluated - CML subsets - random combinations of 2
+## applies the selected processing method 
+subset_choice <- t( combn(1:16, 2) )  
+for ( i_row in 1 : nrow(subset_choice) ) {
+  row_i <- subset_choice[i_row,]
+  which_cols <- paste( row_i, collapse = "_" ) 
+  
+  lol <- sup.rain.data( scens = paste0("newRain__subcols_mean-which_cols-", which_cols) )
+  
+  if ( i_row == 1 ) {
+    newRainComb_rand2 <- lol
+  } else {
+    newRainComb_rand2 <- merge(newRainComb_rand2,lol)
+  }
+}
+
+#######################################
+## prepares and runs rainfall-runoff simulations
+newRainComb_rand2_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
+                                            data_new  = newRainComb_rand2,
+                                            package   = package )
+
+
+
+subset_choice <- t( combn(1:16, 3) )  # combinations of 3
+
+
+
+
+#####################################################################################################################
 ## Combining the CMLs - runoff statistics
 
 #######################################
@@ -118,81 +151,82 @@ newRainCombdV_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc,
 
 
 
+# #####################################################################################################################
+# ## Combining the CMLs - rainfall statistics
+# 
+# #######################################
+# ## defines data to be evaluated - CML subsets - NSE
+# ## applies the selected processing method 
+# for ( i_nCML in 1:nrow(newRain_stats$statistics_rain$all$overview_noEv) ) {
+#   lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
+#                                             unlist( strsplit( rownames( newRain_stats$statistics_rain$all$overview_noEv[ order(newRain_stats$statistics_rain$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML] ,
+#                                                               "_-_newRain_" ) )[c(T,F)]  ) ] 
+#   if ( i_nCML == 1 ) {
+#     newRainCombNSE_rain <- meanAll(lol)  
+#     colnames(newRainCombNSE_rain)[3] <- paste0("bestNSE_rain_", i_nCML)
+#   } else {
+#     newRainCombNSE_rain[ paste0("bestNSE_rain_", i_nCML) ] <- meanAll(lol)[3]  
+#   }
+# }
+# 
+# #######################################
+# ## prepares and runs rainfall-runoff simulations
+# newRainCombNSE_rain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
+#                                               data_new  = newRainCombNSE_rain,
+#                                               package   = package )
+# 
+# 
+# 
+# #######################################
+# ## defines data to be evaluated - CML subsets - SCC
+# ## applies the selected processing method 
+# for ( i_nCML in 1:nrow(newRain_stats$statistics_rain$all$overview_noEv) ) {
+#   lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
+#                                             unlist( strsplit( rownames( newRain_stats$statistics_rain$all$overview_noEv[ order(newRain_stats$statistics_rain$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML] ,
+#                                                               "_-_newRain_" ) )[c(T,F)]  ) ] 
+#   if ( i_nCML == 1 ) {
+#     newRainCombSCC_rain <- meanAll(lol)  
+#     colnames(newRainCombSCC_rain)[3] <- paste0("bestSCC_rain_", i_nCML)
+#   } else {
+#     newRainCombSCC_rain[ paste0("bestSCC_rain_", i_nCML) ] <- meanAll(lol)[3]  
+#   }
+# }
+# 
+# #######################################
+# ## prepares and runs rainfall-runoff simulations
+# newRainCombSCC_rain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
+#                                               data_new  = newRainCombSCC_rain,
+#                                               package   = package )
+# 
+# 
+# 
+# #######################################
+# ## defines data to be evaluated  - CML subsets - dV
+# ## applies the selected processing method 
+# for ( i_nCML in 1:nrow(newRain_stats$statistics_rain$all$overview_noEv) ) {
+#   lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
+#                                             unlist( strsplit( rownames( newRain_stats$statistics_rain$all$overview_noEv[ order(newRain_stats$statistics_rain$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML] ,
+#                                                               "_-_newRain_" ) )[c(T,F)]  ) ] 
+#   if ( i_nCML == 1 ) {
+#     newRainCombdV_rain <- meanAll(lol)  
+#     colnames(newRainCombdV_rain)[3] <- paste0("bestdV_rain_", i_nCML)
+#   } else {
+#     newRainCombdV_rain[ paste0("bestdV_rain_", i_nCML) ] <- meanAll(lol)[3]  
+#   }
+# }
+# 
+# #######################################
+# ## prepares and runs rainfall-runoff simulations
+# newRainCombdV_rain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
+#                                              data_new  = newRainCombdV,
+#                                              package   = package )
+
+
 #####################################################################################################################
-## Combining the CMLs - rainfall statistics
+## Combining the CMLs - other arbitrary subsets
 
 #######################################
-## defines data to be evaluated - CML subsets - NSE
-## applies the selected processing method 
-for ( i_nCML in 1:nrow(newRain_stats$statistics_rain$all$overview_noEv) ) {
-  lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
-                                            unlist( strsplit( rownames( newRain_stats$statistics_rain$all$overview_noEv[ order(newRain_stats$statistics_rain$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML] ,
-                                                              "_-_newRain_" ) )[c(T,F)]  ) ] 
-  if ( i_nCML == 1 ) {
-    newRainCombNSE_rain <- meanAll(lol)  
-    colnames(newRainCombNSE_rain)[3] <- paste0("bestNSE_rain_", i_nCML)
-  } else {
-    newRainCombNSE_rain[ paste0("bestNSE_rain_", i_nCML) ] <- meanAll(lol)[3]  
-  }
-}
-
-#######################################
-## prepares and runs rainfall-runoff simulations
-newRainCombNSE_rain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
-                                              data_new  = newRainCombNSE_rain,
-                                              package   = package )
-
-
-
-#######################################
-## defines data to be evaluated - CML subsets - SCC
-## applies the selected processing method 
-for ( i_nCML in 1:nrow(newRain_stats$statistics_rain$all$overview_noEv) ) {
-  lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
-                                            unlist( strsplit( rownames( newRain_stats$statistics_rain$all$overview_noEv[ order(newRain_stats$statistics_rain$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML] ,
-                                                              "_-_newRain_" ) )[c(T,F)]  ) ] 
-  if ( i_nCML == 1 ) {
-    newRainCombSCC_rain <- meanAll(lol)  
-    colnames(newRainCombSCC_rain)[3] <- paste0("bestSCC_rain_", i_nCML)
-  } else {
-    newRainCombSCC_rain[ paste0("bestSCC_rain_", i_nCML) ] <- meanAll(lol)[3]  
-  }
-}
-
-#######################################
-## prepares and runs rainfall-runoff simulations
-newRainCombSCC_rain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
-                                              data_new  = newRainCombSCC_rain,
-                                              package   = package )
-
-
-
-#######################################
-## defines data to be evaluated  - CML subsets - dV
-## applies the selected processing method 
-for ( i_nCML in 1:nrow(newRain_stats$statistics_rain$all$overview_noEv) ) {
-  lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
-                                            unlist( strsplit( rownames( newRain_stats$statistics_rain$all$overview_noEv[ order(newRain_stats$statistics_rain$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML] ,
-                                                              "_-_newRain_" ) )[c(T,F)]  ) ] 
-  if ( i_nCML == 1 ) {
-    newRainCombdV_rain <- meanAll(lol)  
-    colnames(newRainCombdV_rain)[3] <- paste0("bestdV_rain_", i_nCML)
-  } else {
-    newRainCombdV_rain[ paste0("bestdV_rain_", i_nCML) ] <- meanAll(lol)[3]  
-  }
-}
-
-#######################################
-## prepares and runs rainfall-runoff simulations
-newRainCombdV_rain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
-                                             data_new  = newRainCombdV,
-                                             package   = package )
-
-
-
-
-#######################################
-## defines data to be evaluated - other arbitrary subsets
+## defines data to be evaluated 
 ## applies the selected processing method 
 newRain_arb1 <- newRain[ c(1 ,2, 3, 4, 7, 8) ]  # CMLs # 3, 4, 7, 8
 newRain_arb2 <- newRain[ c(1 ,2, 3, 4, 5, 6, 7) ]  # CMLs # 3, 4, 5, 6, 7

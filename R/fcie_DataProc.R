@@ -27,6 +27,7 @@
 "aggregbykeepLin-min-15"   # aggregates time series to a coarser time step but disaggregates it back afterwards using linear interpolation
 "single-***"               # selects a single time series
 "meanof-***"               # takes the mean of the partial matches of the name specified
+"subcols_mean-which_cols-1_2_4" # the mean of the specified columns
 
 "ThPol3"                   # for local RGs - 3 Thiessen polygons for SWMM
 "keep3"                    # for local RGs - keeps the same three RGs as ThPl3, but intended for further processing
@@ -179,7 +180,7 @@ process_rainfall_data <- function (rain.data, rain_data_proc_meth) {
    
       proc_meth_hlp <- strsplit( rain_data_proc_meth , "-" )[[1]]
       proc_meth <- proc_meth_hlp[1]   
-      proc_meth_par <- as.numeric( proc_meth_hlp[-1][ c(FALSE, TRUE) ] )
+      proc_meth_par <- proc_meth_hlp[-1][ c(FALSE, TRUE) ]
       names(proc_meth_par) <- proc_meth_hlp[-1][ c(TRUE, FALSE) ]
       
       out <- eval(parse(text = proc_meth)) (rain.data = rain.data, proc_meth_par = proc_meth_par)  
@@ -195,6 +196,23 @@ process_rainfall_data <- function (rain.data, rain_data_proc_meth) {
 ########################################################################################################################
 
 # processing method functions --------------------------------------------------------------
+
+# the mean of the specified columns
+subcols_mean <- function( rain.data, proc_meth_par  ) {
+  
+  which_cols <- proc_meth_par['which_cols']
+  which_cols <- as.numeric( unlist(strsplit(which_cols, "_")) )
+  
+  out <- rain.data[ ,  colnames(rain.data) %in% c( "time", "id" ) ]
+  
+  hlp <- apply( X = rain.data[ , colnames(rain.data)[ !colnames(rain.data) %in% c("time", "id") ] [which_cols] ] , 
+                MARGIN = 1, FUN = mean, na.rm = T )
+  
+  out <- cbind( out, hlp )
+  colnames(out)[ colnames(out) %in% "hlp" ] <- paste( which_cols, collapse = "_" )
+  
+  return(out)
+}
 
 # no processing --------------------------
 noProc <- function(rain.data, proc_meth_par) {
@@ -249,7 +267,7 @@ freq <- function(rain.data, proc_meth_par) {
   
   out      <- rain.data[ colnames(rain.data) %in% c( "time", "id" ) ]
   
-  i_fr <- as.numeric( proc_meth_par )
+  i_fr <- as.numeric( proc_meth_par["fr"] )
   
   to.keep  <- c()
  
@@ -286,7 +304,7 @@ meanChan <- function(rain.data, proc_meth_par) {
 # aggregates time series to a coarser time step --------------------------
 aggregby <- function( rain.data, proc_meth_par){
   
-  by_step <- proc_meth_par['min']
+  by_step <- as.numeric( proc_meth_par['min'] )
   
   hlp <- rain.data[ !(colnames(rain.data) %in% c("time", "id")) ]
 
@@ -310,7 +328,7 @@ aggregby <- function( rain.data, proc_meth_par){
 # aggregates time series to a coarser time step but disaggregates it back afterwards using linear interpolation --------------------------
 aggregbykeepLin <- function( rain.data, proc_meth_par){
   
-  by_step <- proc_meth_par['min']
+  by_step <- as.numeric( proc_meth_par['min'] )
 
   hlp <- rain.data[ !(colnames(rain.data) %in% c("time", "id")) ]  
   
@@ -362,7 +380,7 @@ aggregbykeepLin <- function( rain.data, proc_meth_par){
 # aggregates time series to a coarser time step but disaggregates it back afterwards using a constant value --------------------------
 aggregbykeepCon <- function( rain.data, proc_meth_par){
   
-  by_step <- proc_meth_par['min']
+  by_step <- as.numeric( proc_meth_par['min'] )
   
   hlp <- rain.data[ !(colnames(rain.data) %in% c("time", "id")) ]
   
@@ -417,7 +435,7 @@ basFeni <- function(rain.data, proc_meth_par) {
 
   Atten.data <- rain.data
   
-  m <- proc_meth_par['m']
+  m <- as.numeric( proc_meth_par['m'] )
   #m <- 0.00145
   #m <- 0.00568
   out <- Atten.data; out[, -which(colnames(out) %in% c("time", "id") ) ] <- NA
@@ -610,8 +628,8 @@ WAASchl  <- function(rain.data, proc_meth_par) {
 
   Atten.data <- rain.data
   
-  i_Wmax <- proc_meth_par["Wmax"] # [dB]
-  i_tau  <- proc_meth_par["tau"]  # [min]
+  i_Wmax <- as.numeric( proc_meth_par["Wmax"] ) # [dB]
+  i_tau  <- as.numeric( proc_meth_par["tau"] )  # [min]
   # i_Wmax = 2.3  # [dB]
   # i_tau = 15  # [min]
   WAA <- Atten.data; WAA[, -which(colnames(WAA) %in% c("time", "id") ) ] <- NA
@@ -668,7 +686,7 @@ WAAlog <- function(rain.data, proc_meth_par) {
   
   Atten.data <- rain.data
   
-  i_a = proc_meth_par["a"]; i_b = proc_meth_par["b"]
+  i_a = as.numeric( proc_meth_par["a"] ); as.numeric( i_b = proc_meth_par["b"] )
   # i_a = 2; i_b = 5
   out <- Atten.data; out[, -which(colnames(out) %in% c("time", "id") ) ] <- NA
   for ( i_colnames in colnames(Atten.data)[ !(colnames(Atten.data) %in% c("time", "id")) ] ) {
@@ -696,7 +714,7 @@ WAAVal <- function(rain.data, proc_meth_par) {
   
   Atten.data <- rain.data
   
-  k = proc_meth_par["k"]; alp = proc_meth_par["alp"]
+  k = as.numeric( proc_meth_par["k"] ); alp = as.numeric( proc_meth_par["alp"] )
   # k = 0.68; alp = 0.34
   out <- Atten.data; out[, -which(colnames(out) %in% c("time", "id") ) ] <- NA
   for ( i_colnames in colnames(Atten.data)[ !(colnames(Atten.data) %in% c("time", "id")) ] ) {
@@ -763,7 +781,7 @@ WAAValpq <- function(rain.data, proc_meth_par) {
   
   Atten.data <- rain.data
   
-  p = proc_meth_par["p"]; q = proc_meth_par["q"]
+  p = as.numeric( proc_meth_par["p"] ); q = as.numeric( proc_meth_par["q"] )
   #p = 1.5; q = 0.6
   out <- Atten.data; out[, -which(colnames(out) %in% c("time", "id") ) ] <- NA
   for ( i_colnames in colnames(Atten.data)[ !(colnames(Atten.data) %in% c("time", "id")) ] ) {
@@ -822,7 +840,7 @@ WAAGaRuSp <- function(rain.data, proc_meth_par) {
   
   Atten.data <- rain.data
   
-  i_C = proc_meth_par["C"]; i_d = proc_meth_par["d"]
+  i_C = as.numeric( proc_meth_par["C"] ); i_d = as.numeric( proc_meth_par["d"] )
   # i_C = 5.5; i_d = 1.5
   out <- Atten.data; out[, -which(colnames(out) %in% c("time", "id") ) ] <- NA
   for ( i_colnames in colnames(Atten.data)[ !(colnames(Atten.data) %in% c("time", "id")) ] ) {
@@ -850,7 +868,7 @@ WAAGaRu <- function(rain.data, proc_meth_par) {
   
   Atten.data <- rain.data
   
-  i_C = proc_meth_par["C"]; i_d = proc_meth_par["d"]
+  i_C = as.numeric( proc_meth_par["C"] ); i_d = as.numeric( proc_meth_par["d"] )
   # i_C = 7; i_d = 0.55
   out <- Atten.data; out[, -which(colnames(out) %in% c("time", "id") ) ] <- NA
   for ( i_colnames in colnames(Atten.data)[ !(colnames(Atten.data) %in% c("time", "id")) ] ) {
@@ -879,7 +897,7 @@ WAAKhaRo <- function(rain.data, proc_meth_par) {
   
   Atten.data <- rain.data
   
-  i_C = proc_meth_par["C"]; i_d = proc_meth_par["d"]
+  i_C = as.numeric( proc_meth_par["C"] ); i_d = as.numeric( proc_meth_par["d"] )
   # i_C = 7; i_d = 0.125
   out <- Atten.data; out[, -which(colnames(out) %in% c("time", "id") ) ] <- NA
   for ( i_colnames in colnames(Atten.data)[ !(colnames(Atten.data) %in% c("time", "id")) ] ) {
@@ -898,9 +916,9 @@ WAA3GaRuSp <- function(rain.data, proc_meth_par) {
   
   Atten.data <- rain.data
   
-  i_C =  proc_meth_par["C"]
-  i_d =  proc_meth_par["d"]
-  i_z =  proc_meth_par["z"]
+  i_C =  as.numeric( proc_meth_par["C"] )
+  i_d =  as.numeric( proc_meth_par["d"] )
+  i_z =  as.numeric( proc_meth_par["z"] )
   # i_C = 5.5; i_d = 1.5
   out <- Atten.data; out[, -which(colnames(out) %in% c("time", "id") ) ] <- NA
   for ( i_colnames in colnames(Atten.data)[ !(colnames(Atten.data) %in% c("time", "id")) ] ) {
@@ -952,9 +970,9 @@ WAA3GaRu <- function(rain.data, proc_meth_par) {
   
   Atten.data <- rain.data
   
-  i_C =  proc_meth_par["C"]
-  i_d =  proc_meth_par["d"]
-  i_z =  proc_meth_par["z"]
+  i_C =  as.numeric( proc_meth_par["C"] )
+  i_d =  as.numeric( proc_meth_par["d"] )
+  i_z =  as.numeric( proc_meth_par["z"] )
   # i_C = 5.5; i_d = 1.5
   out <- Atten.data; out[, -which(colnames(out) %in% c("time", "id") ) ] <- NA
   for ( i_colnames in colnames(Atten.data)[ !(colnames(Atten.data) %in% c("time", "id")) ] ) {
@@ -1005,9 +1023,9 @@ WAA3KhaRo <- function(rain.data, proc_meth_par) {
   
   Atten.data <- rain.data
   
-  i_C =  proc_meth_par["C"]
-  i_d =  proc_meth_par["d"]
-  i_z =  proc_meth_par["z"]
+  i_C =  as.numeric( proc_meth_par["C"] )
+  i_d =  as.numeric( proc_meth_par["d"] )
+  i_z =  as.numeric( proc_meth_par["z"] )
   # i_C = 7; i_d = 0.125
   out <- Atten.data; out[, -which(colnames(out) %in% c("time", "id") ) ] <- NA
   for ( i_colnames in colnames(Atten.data)[ !(colnames(Atten.data) %in% c("time", "id")) ] ) {
@@ -1026,9 +1044,9 @@ WAAKhaRoVal <- function(rain.data, proc_meth_par) {
   
   Atten.data <- rain.data
   
-  i_C =  proc_meth_par["C"]
-  i_d =  proc_meth_par["d"]
-  i_z =  proc_meth_par["z"]
+  i_C =  as.numeric( proc_meth_par["C"] )
+  i_d =  as.numeric( proc_meth_par["d"] )
+  i_z =  as.numeric( proc_meth_par["z"] )
   # i_C = 7; i_d = 0.1; i_z = 1
   out <- Atten.data; out[, -which(colnames(out) %in% c("time", "id") ) ] <- NA
   for ( i_colnames in colnames(Atten.data)[ !(colnames(Atten.data) %in% c("time", "id")) ] ) {
@@ -1088,7 +1106,7 @@ WAAconst <- function(rain.data, proc_meth_par) {
   
   Atten.data <- rain.data
   
-  WAA = proc_meth_par["WAA"];
+  WAA = as.numeric( proc_meth_par["WAA"] )
   # WAA <- 1.57
   out <- Atten.data; out[, -which(colnames(out) %in% c("time", "id") ) ] <- NA
   for ( i_colnames in colnames(Atten.data)[ !(colnames(Atten.data) %in% c("time", "id")) ] ) {
