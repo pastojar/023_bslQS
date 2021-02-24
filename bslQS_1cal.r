@@ -25,14 +25,14 @@ uni.data[["CML_meta"]] <- read.csv( system.file( "extdata", "meta_25xCML_complet
 all.events  <-  ( 1 : length(uni.data$RG.overview[,1]) )
 
 bad.events  <-  c( c(2:9, 79:83, 42), (59), (60:65))                # damaged FG data  || too long  ||  winter  
-NA_for_CML  <-  c( 1, 28, 85, 91, 92,     10:18, 35, 46, 53 )   # 10:18, 35, 46, 53 could be simulated, but only with too few CMLs      
-NA_for_locRGs <- union( c(19:21, 77:78) , union( c(71, 74, 88) , c(75:78) ) )           #  NA loc RGs  ||  weird locRGs || RG1 stuffed by insect 
+NA_for_CML  <-  c( 1, 28, 85, 91, 92, 93,     10:18, 35, 46, 53 )   # 10:18, 35, 46, 53 could be simulated, but only with too few CMLs      
+NA_for_locRGs <- union( c(19:21, 77:78) , union( c(71, 74, 88) , c(47, 75:78) ) )           #  NA loc RGs  ||  weird locRGs || RG1 stuffed (e.g. by insect)
 
 good.events <-  setdiff(all.events, union(bad.events, union(NA_for_locRGs, NA_for_CML)) )
 
 periods     <-  uni.data$RG.overview[ good.events,  ] [, c("st", "en") ]
 
-set.seed(288); which_events <- rbinom(n = length(good.events) , size = 1, prob = 0.5)
+set.seed(144); which_events <- rbinom(n = length(good.events) , size = 1, prob = 0.5)
 eventIDsCa    <- as.character( periods$st[ !which_events ] )                     # desired events for CALIBRATION  
 eventIDsPre   <- setdiff( as.character( periods$st ) , eventIDsCa )   # desired events for PREDICTION
 rownames(periods) [ as.character(periods$st) %in% eventIDsCa ]  <- eventIDsCa

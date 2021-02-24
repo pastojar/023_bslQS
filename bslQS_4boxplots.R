@@ -24,7 +24,7 @@ if ( grepl( "aggregby-", refRain_Ca_name ) ) {
 #######################################
 ## loading external data
 ## and merging with the local data
-dir_ref <- "D:/OneDrive - České vysoké učení technické/sim_results/023_bslQS/023_bslQS_05_ref"
+dir_ref <- "D:/OneDrive - České vysoké učení technické/sim_results/023_bslQS/023_bslQS_06_ref"
 Rdata_name <- "bsl.QS_3stats.Rdata"
 load( file.path(dir_ref, Rdata_name) )
 
@@ -179,13 +179,13 @@ for ( i_col in 1:ncol(event_class_sta) ) {
         
         abline(h = seq( from = ylim[j_metric,1], to = ylim[j_metric,2], by = (max(ylim[j_metric,]) - min(ylim[j_metric,])) /20 ), 
                col = gray(0.55), lwd = 0.15, lty = 2 ) 
-        # abline(h = 0, 
-        #        col = gray(0.25), lwd = 0.35, lty = 2 )
         if ( i_data == 1 ) {
           loc_perf <- data_i[ "noEv", "loc" ] 
         }
         abline(h = loc_perf, 
-               col = gray(0.25), lwd = 0.5, lty = 2 )
+               col = "magenta", lwd = 0.5, lty = 2 )
+        abline(h = 0,
+               col = gray(0.25), lwd = 0.35, lty = 2 )
         
         abline(v = c(16, 18)+0.5, col = gray(0.8), lwd = 0.3 )
       }

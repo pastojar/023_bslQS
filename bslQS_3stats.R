@@ -8,7 +8,7 @@ devtools::load_all(".")
 
 #######################################
 ## loading external data
-dir_ref <- "D:/OneDrive - České vysoké učení technické/sim_results/023_bslQS/023_bslQS_05_ref"
+dir_ref <- "D:/OneDrive - České vysoké učení technické/sim_results/023_bslQS/023_bslQS_06_ref"
 Rdata_name <- "bsl.QS_2rr.Rdata"
 load( file.path(dir_ref, Rdata_name) )
 

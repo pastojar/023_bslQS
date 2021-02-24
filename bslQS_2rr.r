@@ -249,11 +249,12 @@ newRainArb_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc,
 
 #####################################################################################################################
 ## merges the rain and runoff data
-mergedRain <- merge( merge( merge( merge( newRain, 
-                                                            newRainArb ),
-                                                     newRainCombdV),
-                                              newRainCombNSE), 
-                                       newRainCombSCC)
+mergedRain <- merge(merge( merge( merge( merge( newRain, 
+                                                newRainArb ),
+                                         newRainCombdV),
+                                  newRainCombNSE), 
+                           newRainCombSCC),
+                    newRainComb_rand2)
 
 # mergedRain <- merge(merge(merge(merge( merge( merge( merge( newRain, 
 #                                                             newRainArb ),
@@ -264,11 +265,12 @@ mergedRain <- merge( merge( merge( merge( newRain,
 #                           newRainCombNSE_rain), 
 #                     newRainCombSCC_rain)
 
-mergedRuno <-merge( merge( merge( merge( newRain_Q, 
-                                                               newRainArb_Q ),
-                                                        newRainCombdV_Q),
-                                                 newRainCombNSE_Q), 
-                                          newRainCombSCC_Q)
+mergedRuno <- merge( merge( merge( merge( merge( newRain_Q, 
+                                                 newRainArb_Q ),
+                                          newRainCombdV_Q),
+                                   newRainCombNSE_Q), 
+                            newRainCombSCC_Q), 
+                     newRainComb_rand2_Q)
 
 # mergedRuno <- merge( merge( merge( merge( merge( merge( merge( newRain_Q, 
 #                                                                newRainArb_Q ),

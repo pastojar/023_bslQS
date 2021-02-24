@@ -24,7 +24,7 @@ if ( grepl( "aggregby-", refRain_Ca_name ) ) {
 #######################################
 ## loading external data
 ## and merging with the local data
-dir_ref <- "D:/OneDrive - České vysoké učení technické/sim_results/023_bslQS/023_bslQS_05_ref"
+dir_ref <- "D:/OneDrive - České vysoké učení technické/sim_results/023_bslQS/023_bslQS_06_ref"
 Rdata_name <- "bsl.QS_3stats.Rdata"
 load( file.path(dir_ref, Rdata_name) )
 
@@ -61,8 +61,8 @@ for ( i_cml in colnames(stats_to_plot$FlowData)[ 6:ncol(stats_to_plot$FlowData) 
     plot( x = data_i$Qobs ,
           y = data_i[,i_cml] ,
           log = "xy" ,
-          xlim = c(5.5, max(Qobs, na.rm = T) ) ,
-          ylim = c(5.5, max(Qobs, na.rm = T) ) ,
+          xlim = c(5.5, max(data_i$Qobs, na.rm = T) ) ,
+          ylim = c(5.5, max(data_i$Qobs, na.rm = T) ) ,
           type = "n"  )
     
     for ( i_ev in unique(stats_to_plot$FlowData$id) ) {
