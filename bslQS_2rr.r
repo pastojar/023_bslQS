@@ -23,11 +23,15 @@ for ( i_link in rownames(par_opt_all) ) {
 }
 newRain <- sup.rain.data( scens = scens )
 
+
 #######################################
 ## prepares and runs rainfall-runoff simulations
 newRain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
                                   data_new  = newRain,
                                   package   = package )
+mergedRain <- newRain
+mergedRuno <- newRain_Q
+
 
 #######################################
 ## defines event subsets for statistics
@@ -71,9 +75,11 @@ newRainComb_rand2_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc,
                                             data_new  = newRainComb_rand2,
                                             package   = package )
 
+mergedRain <- merge(mergedRain, newRainComb_rand2)
+mergedRuno <- merge(mergedRuno, newRainComb_rand2_Q)
 
 
-subset_choice <- t( combn(1:16, 3) )  # combinations of 3
+#subset_choice <- t( combn(1:16, 3) )  # combinations of 3
 
 
 
@@ -102,6 +108,8 @@ newRainCombNSE_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc,
                                          data_new  = newRainCombNSE,
                                          package   = package )
 
+mergedRain <- merge(mergedRain, newRainCombNSE)
+mergedRuno <- merge(mergedRuno, newRainCombNSE_Q)
 
 
 #######################################
@@ -125,6 +133,8 @@ newRainCombSCC_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc,
                                          data_new  = newRainCombSCC,
                                          package   = package )
 
+mergedRain <- merge(mergedRain, newRainCombSCC)
+mergedRuno <- merge(mergedRuno, newRainCombSCC_Q)
 
 
 
@@ -149,77 +159,9 @@ newRainCombdV_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc,
                                         data_new  = newRainCombdV,
                                         package   = package )
 
+mergedRain <- merge(mergedRain, newRainCombdV)
+mergedRuno <- merge(mergedRuno, newRainCombdV_Q)
 
-
-# #####################################################################################################################
-# ## Combining the CMLs - rainfall statistics
-# 
-# #######################################
-# ## defines data to be evaluated - CML subsets - NSE
-# ## applies the selected processing method 
-# for ( i_nCML in 1:nrow(newRain_stats$statistics_rain$all$overview_noEv) ) {
-#   lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
-#                                             unlist( strsplit( rownames( newRain_stats$statistics_rain$all$overview_noEv[ order(newRain_stats$statistics_rain$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML] ,
-#                                                               "_-_newRain_" ) )[c(T,F)]  ) ] 
-#   if ( i_nCML == 1 ) {
-#     newRainCombNSE_rain <- meanAll(lol)  
-#     colnames(newRainCombNSE_rain)[3] <- paste0("bestNSE_rain_", i_nCML)
-#   } else {
-#     newRainCombNSE_rain[ paste0("bestNSE_rain_", i_nCML) ] <- meanAll(lol)[3]  
-#   }
-# }
-# 
-# #######################################
-# ## prepares and runs rainfall-runoff simulations
-# newRainCombNSE_rain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
-#                                               data_new  = newRainCombNSE_rain,
-#                                               package   = package )
-# 
-# 
-# 
-# #######################################
-# ## defines data to be evaluated - CML subsets - SCC
-# ## applies the selected processing method 
-# for ( i_nCML in 1:nrow(newRain_stats$statistics_rain$all$overview_noEv) ) {
-#   lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
-#                                             unlist( strsplit( rownames( newRain_stats$statistics_rain$all$overview_noEv[ order(newRain_stats$statistics_rain$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML] ,
-#                                                               "_-_newRain_" ) )[c(T,F)]  ) ] 
-#   if ( i_nCML == 1 ) {
-#     newRainCombSCC_rain <- meanAll(lol)  
-#     colnames(newRainCombSCC_rain)[3] <- paste0("bestSCC_rain_", i_nCML)
-#   } else {
-#     newRainCombSCC_rain[ paste0("bestSCC_rain_", i_nCML) ] <- meanAll(lol)[3]  
-#   }
-# }
-# 
-# #######################################
-# ## prepares and runs rainfall-runoff simulations
-# newRainCombSCC_rain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
-#                                               data_new  = newRainCombSCC_rain,
-#                                               package   = package )
-# 
-# 
-# 
-# #######################################
-# ## defines data to be evaluated  - CML subsets - dV
-# ## applies the selected processing method 
-# for ( i_nCML in 1:nrow(newRain_stats$statistics_rain$all$overview_noEv) ) {
-#   lol <- newRain[ colnames(newRain) %in% c( "time", "id", 
-#                                             unlist( strsplit( rownames( newRain_stats$statistics_rain$all$overview_noEv[ order(newRain_stats$statistics_rain$all$overview_noEv$NSE, decreasing = T ) , ] ) [1:i_nCML] ,
-#                                                               "_-_newRain_" ) )[c(T,F)]  ) ] 
-#   if ( i_nCML == 1 ) {
-#     newRainCombdV_rain <- meanAll(lol)  
-#     colnames(newRainCombdV_rain)[3] <- paste0("bestdV_rain_", i_nCML)
-#   } else {
-#     newRainCombdV_rain[ paste0("bestdV_rain_", i_nCML) ] <- meanAll(lol)[3]  
-#   }
-# }
-# 
-# #######################################
-# ## prepares and runs rainfall-runoff simulations
-# newRainCombdV_rain_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
-#                                              data_new  = newRainCombdV,
-#                                              package   = package )
 
 
 #####################################################################################################################
@@ -243,43 +185,11 @@ newRainArb_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc,
                                      data_new  = newRainArb,
                                      package   = package )
 
+mergedRain <- merge(mergedRain, newRainArb)
+mergedRuno <- merge(mergedRuno, newRainArb_Q)
 
 
 
-
-#####################################################################################################################
-## merges the rain and runoff data
-mergedRain <- merge(merge( merge( merge( merge( newRain, 
-                                                newRainArb ),
-                                         newRainCombdV),
-                                  newRainCombNSE), 
-                           newRainCombSCC),
-                    newRainComb_rand2)
-
-# mergedRain <- merge(merge(merge(merge( merge( merge( merge( newRain, 
-#                                                             newRainArb ),
-#                                                      newRainCombdV),
-#                                               newRainCombNSE), 
-#                                        newRainCombSCC),
-#                                 newRainCombdV_rain),
-#                           newRainCombNSE_rain), 
-#                     newRainCombSCC_rain)
-
-mergedRuno <- merge( merge( merge( merge( merge( newRain_Q, 
-                                                 newRainArb_Q ),
-                                          newRainCombdV_Q),
-                                   newRainCombNSE_Q), 
-                            newRainCombSCC_Q), 
-                     newRainComb_rand2_Q)
-
-# mergedRuno <- merge( merge( merge( merge( merge( merge( merge( newRain_Q, 
-#                                                                newRainArb_Q ),
-#                                                         newRainCombdV_Q),
-#                                                  newRainCombNSE_Q), 
-#                                           newRainCombSCC_Q),
-#                                    newRainCombdV_rain_Q),
-#                             newRainCombNSE_rain_Q), 
-#                      newRainCombSCC_rain_Q)
 
 
 
