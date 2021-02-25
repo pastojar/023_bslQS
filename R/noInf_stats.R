@@ -162,7 +162,7 @@ simple.stats.core <- function(Qdata) {
   ##    stats_out - a vector of statistics defined below
   
   
-  stats_out_names <- c("dV", "dQmax", "shift_Qmax", "NSE", "PCC", "CR", "RMSE", "SCC")
+  stats_out_names <- c("dV", "dQmax", "shift_Qmax", "NSE", "NNSE", "PCC", "CR", "RMSE", "SCC")
   
   if ( sum(is.na(Qdata$Qmod)) == length(Qdata$Qmod) ) {
     stats_out <- rep(NA, length(stats_out_names))
@@ -209,12 +209,13 @@ simple.stats.core <- function(Qdata) {
     dQmax  <- round( (Vpeak - Vpeak.obs ) / Vpeak.obs , 3 )
     shift  <- time.shift.1h.window(mod = Qmod, obs = Qobs, timestamp = timestamp)
     NS     <- enesko(Qmod, Qobs)
+    NNS    <- 1 / (2 - NS)
     PCC    <- cor(Qobs, Qmod, method = "pearson")
     CR     <- cont.ratio(Qobs = Qobs, Qmod = Qmod, Qobs_sd = Qobs_sd)
     RMSE   <- RMSE(Qmod = Qmod, Qobs = Qobs)
     SCC    <- SCC(Qmod = Qmod, Qobs = Qobs)
     
-    stats_mod <- c(V, Vpeak, dV, dQmax, shift, NS, PCC, CR, RMSE, SCC)
+    stats_mod <- c(V, Vpeak, dV, dQmax, shift, NS, NNS, PCC, CR, RMSE, SCC)
     names(stats_mod) <- stats_mod_names
     
     stats_out <- stats_mod[stats_out_names]  
