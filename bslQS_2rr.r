@@ -79,8 +79,34 @@ mergedRain <- merge(mergedRain, newRainComb_rand2)
 mergedRuno <- merge(mergedRuno, newRainComb_rand2_Q)
 
 
-#subset_choice <- t( combn(1:16, 3) )  # combinations of 3
 
+#######################################
+## defines data to be evaluated - CML subsets - random combinations of 3
+## applies the selected processing method 
+subset_choice <- t( combn(1:16, 3) )  
+set.seed(42);
+subset_choice <- subset_choice[ as.logical( rbinom( n = nrow(subset_choice), size = 1, prob = 0.5 ) ) , ]
+for ( i_row in 1 : nrow(subset_choice) ) {
+  row_i <- subset_choice[i_row,]
+  which_cols <- paste( row_i, collapse = "_" ) 
+  
+  lol <- sup.rain.data( scens = paste0("newRain__subcols_mean-which_cols-", which_cols) )
+  
+  if ( i_row == 1 ) {
+    newRainComb_rand3 <- lol
+  } else {
+    newRainComb_rand3 <- merge(newRainComb_rand3,lol)
+  }
+}
+
+#######################################
+## prepares and runs rainfall-runoff simulations
+newRainComb_rand3_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
+                                            data_new  = newRainComb_rand3,
+                                            package   = package )
+
+mergedRain <- merge(mergedRain, newRainComb_rand3)
+mergedRuno <- merge(mergedRuno, newRainComb_rand3_Q)
 
 
 
