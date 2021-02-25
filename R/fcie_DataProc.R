@@ -349,6 +349,7 @@ aggregbykeepLin <- function( rain.data, proc_meth_par){
   
   if ( length( which( time_diff != by_step ) ) > 0 ) {
     event_ends <-  which( time_diff != by_step )
+    event_ends <-  c(event_ends, nrow(y_short))
   } else {
     event_ends <- nrow(y_short)
   }
