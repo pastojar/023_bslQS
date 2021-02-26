@@ -36,7 +36,7 @@ stats_to_plot <- mergedref_stats
 
 #######################################
 ## color according to the event type
-locRG_NSE_tab$col [order(locRG_NSE_tab$var)] <- nrow(locRG_NSE_tab):1
+locRG_NNSE_tab$col [order(locRG_NNSE_tab$var)] <- nrow(locRG_NNSE_tab):1
 # locRG_NSE_tab$col <- log( -locRG_NSE_tab$var +1 )
 # locRG_NSE_tab$col <- nrow(locRG_NSE_tab) * ( ( locRG_NSE_tab$col - min(locRG_NSE_tab$col ) ) / max( locRG_NSE_tab$col - min(locRG_NSE_tab$col )  ) )  + 1
 
@@ -61,8 +61,8 @@ for ( i_cml in colnames(stats_to_plot$FlowData)[ 6:ncol(stats_to_plot$FlowData) 
     plot( x = data_i$Qobs ,
           y = data_i[,i_cml] ,
           log = "xy" ,
-          xlim = c(5.5, max(data_i$Qobs, na.rm = T) ) ,
-          ylim = c(5.5, max(data_i$Qobs, na.rm = T) ) ,
+          xlim = c(5.5, max(data_i$Qobs, na.rm = T)*1.2 ) ,
+          ylim = c(5.5, max(data_i$Qobs, na.rm = T)*1.2 ) ,
           type = "n"  )
     
     for ( i_ev in unique(stats_to_plot$FlowData$id) ) {
@@ -72,8 +72,7 @@ for ( i_cml in colnames(stats_to_plot$FlowData)[ 6:ncol(stats_to_plot$FlowData) 
               y = data_ij[,i_cml] ,
               #pch = 16, cex = 0.4,
               pch = 19, cex = 0.2,
-              # col =  [ locRG_NSE_tab$col[ rownames(locRG_NSE_tab) %in% i_ev ]  ] 
-              col = myCols( n = round(nrow(locRG_NSE_tab)*1.1) ) [ locRG_NSE_tab$col[ rownames(locRG_NSE_tab) %in% i_ev ]  ]
+              col = myCols( n = round(nrow(locRG_NNSE_tab)*1.1) ) [ locRG_NNSE_tab$col[ rownames(locRG_NNSE_tab) %in% i_ev ]  ]
       )
     }
     
