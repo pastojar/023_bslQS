@@ -51,36 +51,38 @@ myCols <- colorRampPalette( colors = fields::tim.colors(n = 10, alpha = 0.8), al
 #######################################
 ## plotting
 
+# event classification schemes
+event_class_sta <- subset( uni.data$RG.overview, subset = id %in% eventIDsPre , 
+                           select = c( "id", "meanRain_Rmax10", "var_locNrem_5",   "var_locNrem_15",  "var_locNrem_60"  )  )
+event_class_sta <- merge( event_class_sta, QlocRG_var )
+rownames(event_class_sta) <- event_class_sta$id
+event_class_sta <- event_class_sta[ !colnames(event_class_sta) %in% "id" ]  
+event_class_col <- event_class_sta[,0]
+
+
 # boxplot lower and upper boundaries
 ylim <- as.data.frame( matrix( nrow = 5,   c( c(0, 1), c(0, 1),  c(0, 100), c(0.6, 1), 100*c(-1, 1) ) , byrow = T  ), 
                        row.names = c("NSE", "NNSE", "RMSE", "SCC", "dV") )
 
-# event classification schemes
-event_class_sta <- subset( uni.data$RG.overview, subset = id %in% eventIDsPre , 
-                           select = c( "meanRain_Rmax10", "var_locNrem_5",   "var_locNrem_15",  "var_locNrem_60"  )  )
-event_class_sta$Qvar <- locRG_NNSE_tab$var
-rownames(event_class_sta) <- eventIDsPre
-event_class_col <- event_class_sta[,0]
 
 # for all event classification schemes, event subsets, and metrics
 for ( i_col in 1:ncol(event_class_sta) ) {
   
-  if ( colnames(event_class_sta)[i_col] == "Qvar" ) { 
-    event_class_col[ colnames(event_class_sta)[i_col] ] <- NA
-    event_class_col[ colnames(event_class_sta)[i_col] ] [order(event_class_sta[i_col]), ] <- nrow(event_class_sta[i_col]):1
-  } else {
-    event_class_col[ colnames(event_class_sta)[i_col] ] <- round( ( log(event_class_sta[i_col]*100) - log(min(event_class_sta[i_col]*100))  ) / 
-                                                                    ( log(max(event_class_sta[i_col]*100 , na.rm = T)) - log(min(event_class_sta[i_col]*100))  )
-                                                                  * nrow(event_class_sta[i_col]) 
-                                                                 ) + 1
-  }
+  # color according to the event type
+  event_class_col[ colnames(event_class_sta)[i_col] ] <- round( ( log(event_class_sta[i_col]*100) - log(min(event_class_sta[i_col]*100))  ) / 
+                                                                  ( log(max(event_class_sta[i_col]*100 , na.rm = T)) - log(min(event_class_sta[i_col]*100))  )
+                                                                * nrow(event_class_sta[i_col]) 
+                                                               ) + 1
+  
   #event_class_col <- event_class_col + 3  # shifts the colors towards red
   
-  if (i_col == 1 ) { subsetets_i <- c("all", "strong", "medium", "light") }
-  if (i_col == 2 ) { subsetets_i <- c("all", "var_5_1", "var_5_2", "var_5_3") }
-  if (i_col == 3 ) { subsetets_i <- c("all", "var_15_1", "var_15_2", "var_15_3") }
-  if (i_col == 4 ) { subsetets_i <- c("all", "var_60_1", "var_60_2", "var_60_3") }
-  if (i_col == 5 ) { subsetets_i <- c("all", "Qvar_NNSE_1", "Qvar_NNSE_2", "Qvar_NNSE_3") }
+  if (colnames(event_class_sta)[i_col] == "meanRain_Rmax10") { subsetets_i <- c("all", "strong", "medium", "light") }
+  if (colnames(event_class_sta)[i_col] == "var_locNrem_5"  ) { subsetets_i <- c("all", "var_5_1", "var_5_2", "var_5_3") }
+  if (colnames(event_class_sta)[i_col] == "var_locNrem_15" ) { subsetets_i <- c("all", "var_15_1", "var_15_2", "var_15_3") }
+  if (colnames(event_class_sta)[i_col] == "var_locNrem_60" ) { subsetets_i <- c("all", "var_60_1", "var_60_2", "var_60_3") }
+  if (colnames(event_class_sta)[i_col] == "varQ_5"         ) { subsetets_i <- c("all", "varQ_5_1", "varQ_5_2", "varQ_5_3") }
+  if (colnames(event_class_sta)[i_col] == "varQ_15"        ) { subsetets_i <- c("all", "varQ_15_1", "varQ_15_2", "varQ_15_3") }
+  if (colnames(event_class_sta)[i_col] == "varQ_60"        ) { subsetets_i <- c("all", "varQ_60_1", "varQ_60_2", "varQ_60_3") }
   
   for ( j_subset in subsetets_i ) {
     
@@ -166,7 +168,7 @@ for ( i_col in 1:ncol(event_class_sta) ) {
           points( x = xes,
                   y = data_i[ !rownames(data_i) %in% "noEv" , i_scen],
                   # col =  fields::tim.colors(n = round(nrow(event_class_col)*1.2), alpha = 0.8) [ event_class_col[ rownames(event_class_col) %in% rownames(data_i) , colnames(event_class_col)[i_col] ]  ] ,
-                  col = myCols( n = round(nrow(event_class_col)*1.1) ) [  event_class_col[ rownames(event_class_col) %in% rownames(data_i) , colnames(event_class_col)[i_col]]  ] ,
+                  col = myCols( n = round(nrow(event_class_col)*1.1) ) [  event_class_col[ rownames(event_class_col) %in% rownames(data_i) , colnames(event_class_col)[i_col] ]  ] ,
                   pch = 19,
                   cex = 1.8,
                   #ylim = c(y_lim[i_metric, "low"], y_lim[i_metric, "upp"])

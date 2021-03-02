@@ -35,10 +35,17 @@ stats_to_plot <- mergedref_stats
 
 
 #######################################
-## color according to the event type
-locRG_NNSE_tab$col [order(locRG_NNSE_tab$var)] <- nrow(locRG_NNSE_tab):1
-# locRG_NSE_tab$col <- log( -locRG_NSE_tab$var +1 )
-# locRG_NSE_tab$col <- nrow(locRG_NSE_tab) * ( ( locRG_NSE_tab$col - min(locRG_NSE_tab$col ) ) / max( locRG_NSE_tab$col - min(locRG_NSE_tab$col )  ) )  + 1
+## scatteplot color according to the event type
+# event_col <- QlocRG_var["varQ_60"]; rownames(event_col) <- QlocRG_var$id
+# event_col$col [order(event_col$varQ_60)] <- 1:nrow(event_col)
+event_col <- subset( uni.data$RG.overview, subset = id %in% eventIDsPre , 
+                     select ="var_locNrem_60"  )
+rownames(event_col) <- uni.data$RG.overview$id[ uni.data$RG.overview$id %in% eventIDsPre ]
+event_col$col <- round( ( log(event_col[,1]*100) - log(min(event_col[,1]*100))  ) / 
+                          ( log(max(event_col[,1]*100 , na.rm = T)) - log(min(event_col[,1]*100))  )
+                        * nrow(event_col) 
+                      ) + 1
+
 
 
 #######################################
@@ -72,7 +79,7 @@ for ( i_cml in colnames(stats_to_plot$FlowData)[ 6:ncol(stats_to_plot$FlowData) 
               y = data_ij[,i_cml] ,
               #pch = 16, cex = 0.4,
               pch = 19, cex = 0.2,
-              col = myCols( n = round(nrow(locRG_NNSE_tab)*1.1) ) [ locRG_NNSE_tab$col[ rownames(locRG_NNSE_tab) %in% i_ev ]  ]
+              col = myCols( n = round(nrow(event_col)*1.1) ) [ event_col$col[ rownames(event_col) %in% i_ev ]  ]
       )
     }
     
@@ -85,6 +92,54 @@ for ( i_cml in colnames(stats_to_plot$FlowData)[ 6:ncol(stats_to_plot$FlowData) 
 }
 
 
+
+# local RGs
+combs <- t(combn(c("RG1_-_locRGs_smooth__keep3--single-RG1",
+                   "RG2_-_locRGs_smooth__keep3--single-RG2",
+                   "RG3_-_locRGs_smooth__keep3--single-RG3",
+                   "10_-_remRGs_all__single-10",
+                   "13_-_remRGs_all__single-13",
+                   "22_-_remRGs_all__single-22"
+), 2))
+
+png( paste0( out_dir, "/", "locRGs.png") ,
+     type="cairo", units = "in", width = 40, height = 40, res = 250 )
+  
+  par( mar = c(2,2,2,1), bg = grey(0.8), mfrow = c(4,4) )
+  
+  for ( i in 1:15  ) {
+    i_rg_name <- combs[i, 1]
+    j_rg_name <- combs[i, 2]
+    
+    data_i <- stats_to_plot$FlowData[ , c("id", "Qobs", i_rg_name, j_rg_name) ]
+    
+    plot( x = data_i[,i_rg_name] ,
+          y = data_i[,j_rg_name] ,
+          log = "xy" ,
+          xlim = c(5.5, max(data_i$Qobs, na.rm = T)*1.5 ) ,
+          ylim = c(5.5, max(data_i$Qobs, na.rm = T)*1.5 ) ,
+          type = "n",
+          main = paste0( substr(i_rg_name, 1, 3), "__vs__", substr(j_rg_name, 1, 3)) )
+    
+    for ( i_ev in unique(stats_to_plot$FlowData$id) ) {
+      data_ij <- match_with_IDs(data_i, i_ev)
+      
+      points( x = data_ij[,i_rg_name] ,
+              y = data_ij[,j_rg_name] ,
+              #pch = 16, cex = 0.4,
+              pch = 19, cex = 0.2,
+              # col =  [ locRG_NSE_tab$col[ rownames(locRG_NSE_tab) %in% i_ev ]  ] 
+              col = myCols( n = round(nrow(event_col)*1.1) ) [ event_col$col[ rownames(event_col) %in% i_ev ]  ]
+      )
+    }
+    
+    lines( x = c(1,3000) ,
+           y = c(1,3000) ,
+           col = gray(0.5) ,
+           lwd = 1.5 )
+  }
+
+dev.off()
 
 
 
