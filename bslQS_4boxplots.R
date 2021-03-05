@@ -88,7 +88,8 @@ for ( i_col in 1:ncol(event_class_sta) ) {
     
     for ( j_metric in c("NSE", "NNSE", "RMSE", "SCC", "dV") ) {
       
-      
+      ##############################################################################
+      ############# individual CMLs and "smart" combinations
       data_to_plot <- list()
       
       # single CMLs + ref RGs
@@ -135,7 +136,11 @@ for ( i_col in 1:ncol(event_class_sta) ) {
       
       
       # plotting
-      png( paste0( out_dir, "/", colnames(event_class_sta)[i_col], "__", j_subset, "_", j_metric , ".png") ,
+      plot_dir <- file.path( out_dir, "ind+smart" )
+      if ( dir.exists( plot_dir) == F ) {
+        dir.create(plot_dir)  
+      }
+      png( paste0( plot_dir, "/", colnames(event_class_sta)[i_col], "__", j_subset, "_", j_metric , ".png") ,
            type="cairo", units = "in", width = 7*length(data_to_plot), height = 4.5, res = 150 )
       
       par(mar=c(3.5,2,2,1), mfrow = c(1, length(data_to_plot)) )
@@ -197,12 +202,113 @@ for ( i_col in 1:ncol(event_class_sta) ) {
       
       dev.off()
       
+      
+      ##############################################################################
+      ############# combinations of two CMLs
+      data_to_plot <- list()
+      
+      for ( i_CMlno in 1:16 ) {
+        i_CMLpaperNo <- c( "#3", "#4", "#5", "#6", "#7", "#8", "#9", "#11", "#12", "#13", "#14", "#15", "#16", "#17", "#18", "#19" )[i_CMlno]
+        
+        indices <- grep( paste0( "^", as.character(i_CMlno), "_" ) , colnames(  stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] ) [68:187] ) 
+        indices <- c( indices, grep( paste0( "_", as.character(i_CMlno), "_" ) , colnames(  stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] ) [68:187] ) )
+        data_hlp <- stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [,68:187] [ indices ]
+        
+        colnames(data_hlp) <- unlist( strsplit( colnames(data_hlp), "_-_" ) ) [c(T,F)]
+        colnames(data_hlp) <- paste( c( "#3", "#4", "#5", "#6", "#7", "#8", "#9", "#11", "#12", "#13", "#14", "#15", "#16", "#17", "#18", "#19" ) [as.numeric(unlist(strsplit(colnames(data_hlp), "_")))][c(T,F)] ,
+                                     c( "#3", "#4", "#5", "#6", "#7", "#8", "#9", "#11", "#12", "#13", "#14", "#15", "#16", "#17", "#18", "#19" ) [as.numeric(unlist(strsplit(colnames(data_hlp), "_")))][c(F,T)] ,
+                                     sep = "_" )
+        
+        data_hlp["noEv",] <- stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] [68:187,] [ indices ]
+        
+                
+        data_hlp[,i_CMLpaperNo] <- c( stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [[ 
+                                        grep( pattern = paste0("single-", i_CMLpaperNo) , x = names( stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]]) ) ]] , 
+                                      stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[ 
+                                        grep( pattern = paste0("single-", i_CMLpaperNo) , x = rownames( stats_to_plot$statistics_runo [[j_subset]]$overview_noEv ) ), j_metric ] )
+
+        data_hlp$loc <- c( stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [["locRGs_smooth__ThPol3"]] ,
+                           stats_to_plot$statistics_runo [[j_subset]]$overview_noEv["locRGs_smooth__ThPol3", j_metric] )
+        data_hlp$cal <- c( stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [[refRain_Ca_name]] ,
+                           stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[refRain_Ca_name, j_metric] )
+        
+        data_to_plot[[ i_CMLpaperNo ]] <- data_hlp
+      }
+     
+      
+      # plotting
+      plot_dir <- file.path( out_dir, "combOF2" )
+      if ( dir.exists( plot_dir) == F ) {
+        dir.create(plot_dir)  
+      }
+      png( paste0( plot_dir, "/", colnames(event_class_sta)[i_col], "__", j_subset, "_", j_metric , ".png") ,
+           type="cairo", units = "in", width = 7*4, height = 4.5*4, res = 150 )
+      
+      par( mar = c(5,2.5,2,0.5), mfrow = c(4,4) )
+      
+      for ( i_data in 1:length(data_to_plot) ) {
+        data_i <- data_to_plot[[i_data]]
+        
+        if ( j_metric == "dV" ) {  # [-] --> [%]       
+          data_i <-  data_i * 100 
+        }
+        
+        if ( names(data_to_plot)[i_data] == "single" ) {
+          col_plot <- col_CML   
+        } else { 
+          col_plot <- NA
+        }
+        
+        boxplot( data_i[ !rownames(data_i) %in% "noEv" , ]  , outline = T, range = 0,  # default - 1.5 , to extremes - 0
+                 names = F, horizontal = F, border = gray(0.2),  cex.axis = 1.2,
+                 ylim = as.numeric(ylim[j_metric,]), col = c(col_plot, NA, NA)  )
+        
+        for ( i_num in 1:ncol(data_i) ) {
+          # xes <- jitter(rep(i_num, length(data_i[ !rownames(data_i) %in% "noEv", i_scen])), amount = 0.2 ) 
+          xes <- event_class_col[ rownames(data_i)[ !rownames(data_i )%in% "noEv" ], colnames(event_class_col)[i_col]  ]
+          xes <- xes - min(xes) 
+          xes <- ( ( xes / max(xes) - 0.5 ) *0.8 ) + i_num
+          
+          i_scen <- colnames(data_i)[i_num]
+          set.seed(1)
+          points( x = xes,
+                  y = data_i[ !rownames(data_i) %in% "noEv" , i_scen],
+                  # col =  fields::tim.colors(n = round(nrow(event_class_col)*1.2), alpha = 0.8) [ event_class_col[ rownames(event_class_col) %in% rownames(data_i) , colnames(event_class_col)[i_col] ]  ] ,
+                  col = myCols( n = round(nrow(event_class_col)*1.1) ) [  event_class_col[ rownames(event_class_col) %in% rownames(data_i) , colnames(event_class_col)[i_col] ]  ] ,
+                  pch = 19,
+                  cex = 1.8,
+                  #ylim = c(y_lim[i_metric, "low"], y_lim[i_metric, "upp"])
+          )
+        }
+        
+        points( x = 1:ncol(data_i), y = data_i["noEv",], pch = "-", cex = 5, col = "magenta" )
+        
+        # mtext(side = 3, line = 0.2, text = paste0( plot_name, " - ", j_subset, " - ", j_metric ), cex = 1.1)
+        mtext(side = 3, line = 0.2, text = names(data_to_plot)[i_data], cex = 1.1)
+        mtext(side = 1, line = 0.7, text = colnames(data_i), cex =0.9, at = 1:ncol(data_i), las = 2 )
+        
+        
+        abline(h = seq( from = ylim[j_metric,1], to = ylim[j_metric,2], by = (max(ylim[j_metric,]) - min(ylim[j_metric,])) /20 ), 
+               col = gray(0.55), lwd = 0.15, lty = 2 ) 
+        if ( i_data == 1 ) {
+          loc_perf <- data_i[ "noEv", "loc" ] 
+        }
+        abline(h = loc_perf, 
+               col = "magenta", lwd = 0.5, lty = 2 )
+        abline(h = 0,
+               col = gray(0.25), lwd = 0.35, lty = 2 )
+        
+        abline(v = c(15, 16, 18)+0.5, col = gray(0.8), lwd = 0.3 )
+      }
+      
+      dev.off()
+      
+      
     }
     
   }
   
   
 }
-
 
 

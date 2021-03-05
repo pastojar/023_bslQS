@@ -36,8 +36,6 @@ stats_to_plot <- mergedref_stats
 
 #######################################
 ## scatteplot color according to the event type
-# event_col <- QlocRG_var["varQ_60"]; rownames(event_col) <- QlocRG_var$id
-# event_col$col [order(event_col$varQ_60)] <- 1:nrow(event_col)
 event_col <- subset( uni.data$RG.overview, subset = id %in% eventIDsPre , 
                      select ="var_locNrem_60"  )
 rownames(event_col) <- uni.data$RG.overview$id[ uni.data$RG.overview$id %in% eventIDsPre ]
@@ -45,6 +43,8 @@ event_col$col <- round( ( log(event_col[,1]*100) - log(min(event_col[,1]*100))  
                           ( log(max(event_col[,1]*100 , na.rm = T)) - log(min(event_col[,1]*100))  )
                         * nrow(event_col) 
                       ) + 1
+# event_col <- QlocRG_var["varQ_60"]; rownames(event_col) <- QlocRG_var$id
+# event_col$col [order(event_col$varQ_60)] <- 1:nrow(event_col)
 
 
 
