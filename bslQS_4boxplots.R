@@ -124,7 +124,7 @@ for ( i_col in 1:ncol(event_class_sta) ) {
       data_hlp["noEv",] <- stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] [ 
         grep( pattern = "NSE" , x = rownames( stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] ) ) , ]
       data_to_plot[["comb - best NSE"]] <- data_hlp
-      
+
       
       # CML combinations - SCC
       data_hlp <- stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [ 
@@ -133,6 +133,16 @@ for ( i_col in 1:ncol(event_class_sta) ) {
       data_hlp["noEv",] <- stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] [ 
         grep( pattern = "SCC" , x = rownames( stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] ) ) , ]
       data_to_plot[["comb - best SCC"]] <- data_hlp
+      
+      
+      # CML combinations - "arbitrary"
+      data_hlp <- stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [ 
+        grep( pattern = "arb" , x = names( stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]]) ) ]
+      colnames( data_hlp ) <- unlist( strsplit( colnames( data_hlp ), "arb-" ) ) [c(F,T)]
+      data_hlp["noEv",] <- stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] [ 
+        grep( pattern = "arb" , x = rownames( stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] ) ) , ]
+      data_to_plot[["comb - arbitrary"]] <- data_hlp
+      
       
       
       # plotting
@@ -184,7 +194,7 @@ for ( i_col in 1:ncol(event_class_sta) ) {
         
         # mtext(side = 3, line = 0.2, text = paste0( plot_name, " - ", j_subset, " - ", j_metric ), cex = 1.1)
         mtext(side = 3, line = 0.2, text = names(data_to_plot)[i_data], cex = 1.1)
-        mtext(side = 1, line = 0.7, text = colnames(data_i), cex =1.1, at = 1:ncol(data_i), las = 2 )
+        mtext(side = 1, line = 0.7, text = colnames(data_i), cex = 0.9, at = 1:ncol(data_i), las = 2 )
         
         
         abline(h = seq( from = ylim[j_metric,1], to = ylim[j_metric,2], by = (max(ylim[j_metric,]) - min(ylim[j_metric,])) /20 ), 
@@ -210,16 +220,16 @@ for ( i_col in 1:ncol(event_class_sta) ) {
       for ( i_CMlno in 1:16 ) {
         i_CMLpaperNo <- c( "#3", "#4", "#5", "#6", "#7", "#8", "#9", "#11", "#12", "#13", "#14", "#15", "#16", "#17", "#18", "#19" )[i_CMlno]
         
-        indices <- grep( paste0( "^", as.character(i_CMlno), "_" ) , colnames(  stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] ) [68:187] ) 
-        indices <- c( indices, grep( paste0( "_", as.character(i_CMlno), "_" ) , colnames(  stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] ) [68:187] ) )
-        data_hlp <- stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [,68:187] [ indices ]
+        indices <- grep( paste0( "^", as.character(i_CMlno), "_" ) , colnames(  stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] ) [65:184] ) 
+        indices <- c( indices, grep( paste0( "_", as.character(i_CMlno), "_" ) , colnames(  stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] ) [65:184] ) )
+        data_hlp <- stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [,65:184] [ indices ]
         
         colnames(data_hlp) <- unlist( strsplit( colnames(data_hlp), "_-_" ) ) [c(T,F)]
         colnames(data_hlp) <- paste( c( "#3", "#4", "#5", "#6", "#7", "#8", "#9", "#11", "#12", "#13", "#14", "#15", "#16", "#17", "#18", "#19" ) [as.numeric(unlist(strsplit(colnames(data_hlp), "_")))][c(T,F)] ,
                                      c( "#3", "#4", "#5", "#6", "#7", "#8", "#9", "#11", "#12", "#13", "#14", "#15", "#16", "#17", "#18", "#19" ) [as.numeric(unlist(strsplit(colnames(data_hlp), "_")))][c(F,T)] ,
                                      sep = "_" )
         
-        data_hlp["noEv",] <- stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] [68:187,] [ indices ]
+        data_hlp["noEv",] <- stats_to_plot$statistics_runo [[j_subset]]$overview_noEv[j_metric] [65:184,] [ indices ]
         
                 
         data_hlp[,i_CMLpaperNo] <- c( stats_to_plot$statistics_runo [[j_subset]]$overview_ev[[ paste0("table_", j_metric) ]] [[ 

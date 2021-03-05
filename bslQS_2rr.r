@@ -196,20 +196,40 @@ mergedRuno <- merge(mergedRuno, newRainCombdV_Q)
 #######################################
 ## defines data to be evaluated 
 ## applies the selected processing method 
-newRain_arb1 <- newRain[ c(1 ,2, 3, 4, 7, 8) ]  # CMLs # 3, 4, 7, 8
-newRain_arb2 <- newRain[ c(1 ,2, 3, 4, 5, 6, 7) ]  # CMLs # 3, 4, 5, 6, 7
-newRain_arb3 <- newRain[ c(1 ,2, 3, 4, 7, 8, 14) ]  # CMLs # 3, 4, 7, 8, 15
+subset_choice <- list()
+subset_choice["arb-3-4-7-8"] <- paste( c(1, 2, 5, 6), collapse = "_" )       # CMLs # 3, 4, 7, 8
+subset_choice["arb-3-4-7-8-15"] <- paste( c(1, 2, 5, 12), collapse = "_" )   # CMLs # 3, 4, 7, 8, 15
+subset_choice["arb-3-8-12-15"] <- paste( c(1, 6, 9, 12), collapse = "_" )    # CMLs # 3, 8, 12, 15
+subset_choice["arb-3-4-5-6-7-8"] <- paste( c(1,2,3,4,5,6), collapse = "_" )  # CMLs # 3, 4, 5, 6, 7, 8
+subset_choice["arb-length1"] <- paste( c(1, 2, 3, 4, 5), collapse = "_" )    # CMLs # 3, 4, 5, 6, 7
+subset_choice["arb-length2"] <- paste( c(6,7,8,9,10,11), collapse = "_" )    # CMLs # 8, 9, 11, 12, 13, 14 
+subset_choice["arb-length3"] <- paste( c(12,13,14,15,16), collapse = "_" )   # CMLs # 15, 16, 17, 18, 19
 
-arbs <- 1:3
-scens <- as.character(c())
-scens <- c( scens, paste0("newRain_arb", arbs, "__meanAll") )
-newRainArb <- sup.rain.data(scens = scens)
+for ( i_row in 1 : length(subset_choice) ) {
+  which_cols <- subset_choice[[i_row]]
+  
+  lol <- sup.rain.data( scens = paste0("newRain__subcols_mean-which_cols-", which_cols) )
+  colnames(lol)[3] <- names(subset_choice)[[i_row]]
+  
+  if ( i_row == 1 ) {
+    newRainArb <- lol
+  } else {
+    newRainArb <- merge(newRainArb,lol)
+  }
+}
+
 
 #######################################
 ## prepares and runs rainfall-runoff simulations
 newRainArb_Q <- PrepNRunRain_runoff( data_flow = flow.data.proc, 
                                      data_new  = newRainArb,
                                      package   = package )
+mergedRain <- mergedRain[ , !colnames(mergedRain) %in% c( "meanAll_-_newRain_arb1__meanAll", 
+                                                          "meanAll_-_newRain_arb2__meanAll", 
+                                                          "meanAll_-_newRain_arb3__meanAll" ) ]
+mergedRuno <- mergedRuno[ , !colnames(mergedRuno) %in% c( "meanAll_-_newRain_arb1__meanAll", 
+                                                          "meanAll_-_newRain_arb2__meanAll", 
+                                                          "meanAll_-_newRain_arb3__meanAll" ) ] 
 
 mergedRain <- merge(mergedRain, newRainArb)
 mergedRuno <- merge(mergedRuno, newRainArb_Q)
