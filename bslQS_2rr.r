@@ -61,6 +61,7 @@ for ( i_row in 1 : nrow(subset_choice) ) {
   which_cols <- paste( row_i, collapse = "_" ) 
   
   lol <- sup.rain.data( scens = paste0("newRain__subcols_mean-which_cols-", which_cols) )
+  colnames(lol)[ !colnames(lol) %in% c("time", "id") ] <- paste0( "twos_", paste0(c(  "#3",  "#4",  "#5",  "#6",  "#7",  "#8",  "#9", "#11", "#12", "#13", "#14", "#15", "#16", "#17", "#18", "#19" )[row_i], collapse = "" )  )
   
   if ( i_row == 1 ) {
     newRainComb_rand2 <- lol
@@ -91,6 +92,7 @@ for ( i_row in 1 : nrow(subset_choice) ) {
   which_cols <- paste( row_i, collapse = "_" ) 
   
   lol <- sup.rain.data( scens = paste0("newRain__subcols_mean-which_cols-", which_cols) )
+  colnames(lol)[ !colnames(lol) %in% c("time", "id") ] <- paste0( "threes_", paste0(c(  "#3",  "#4",  "#5",  "#6",  "#7",  "#8",  "#9", "#11", "#12", "#13", "#14", "#15", "#16", "#17", "#18", "#19" )[row_i], collapse = "" )  )
   
   if ( i_row == 1 ) {
     newRainComb_rand3 <- lol
