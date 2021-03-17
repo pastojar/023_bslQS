@@ -46,6 +46,169 @@ group.run.plot <- function(dir, name, par, ev.data) {
 
 #---------------------------------------------------------------------
 
+plot.Ca.res <- function(Ca.res, pack.dir) {
+  
+  pdf( paste(pack.dir, "/2_MCMC.Adapt_chains+margs.pdf", sep="") )
+  RAMtoplot1 <- Ca.res$RAM
+  RAMtoplot1$samples <- cbind(Ca.res$RAM$samples[(1:runs[2]),], log.post=Ca.res$RAM$log.p[(1:runs[2])])
+  RAMtoplot1 <- adaptMCMC::convert.to.coda(RAMtoplot1)
+  plot(RAMtoplot1)
+  dev.off()
+  
+  pdf( paste(pack.dir, "/2_MCMC.Adapt_cumuplot.pdf", sep="") )
+  coda::cumuplot(RAMtoplot1)
+  dev.off()
+  
+  pdf( paste(pack.dir, "/3_MCMC.nonAdapt_chains+margs.pdf", sep="") )
+  RAMtoplot2 <- Ca.res$RAM
+  RAMtoplot2$samples <- cbind(Ca.res$RAM$samples[-(1:runs[2]),], log.post=Ca.res$RAM$log.p[-(1:runs[2])])
+  RAMtoplot2 <- adaptMCMC::convert.to.coda(RAMtoplot2)
+  plot(RAMtoplot2)
+  dev.off()
+  
+  pdf( paste(pack.dir, "/3_MCMC.nonAdapt_margs+prior.pdf", sep="") )
+  sysanal.plot.margs.JA(postsamp=RAMtoplot2, pridist=Ca.res$pr.dis)
+  dev.off()
+  
+  pdf( paste(pack.dir, "/3_MCMC.nonAdapt_cumuplot.pdf", sep="") )
+  coda::cumuplot(RAMtoplot2)
+  dev.off()
+  
+  return(TRUE)
+}
+
+#---------------------------------------------------------------------
+
+CaPre.predict.Ca <- function(evdata, model, MCMC.propa, par.tr, par.fix) {
+  
+  eventID <- names(evdata)
+  
+  evdata <- evdata[[1]]
+  
+  L        <- evdata[[1]]
+  out.data <- evdata[[2]]
+  input    <- evdata[[3]]
+  
+  ret <- sysanal.predict.bias.OU.JA (
+    parsamp.L1        = MCMC.propa,
+    model             = model,
+    eventID           = eventID,
+    #inp.file          = input,
+    #out.data          = out.data,
+    inp               = rep(0,length(L)),
+    ppt               = rep(0,length(L)),
+    L1                = L,
+    #y.obs             = out.data[2:nrow(out.data),2], # WHYYYYY to leave out the first one???
+    y.obs             = out.data[1:nrow(out.data),2],
+    L2                = NA,
+    predict.bias.cond = sysanal.predict.inp.bias.L1.JA,
+    par.tr            = par.tr,
+    par.fix           = par.fix,
+    Var.Bs            = sysanal.Var.Bs,
+    sd.Eps            = sysanal.sd.Eps.L
+  )
+  
+  return(ret)
+}
+
+#---------------------------------------------------------------------
+
+CaPre.predict.Pre <- function(evdata, model, MCMC.propa, par.tr, par.fix) {
+  
+  eventID <- names(evdata)
+  
+  evdata <- evdata[[1]]
+  
+  L        <- evdata[[1]]
+  out.data <- evdata[[2]]
+  input    <- evdata[[3]]
+  
+  ret <- sysanal.predict.bias.OU.JA (
+    parsamp.L1        = MCMC.propa,
+    model             = model,
+    eventID           = eventID,
+    #inp.file          = input,
+    #out.data          = out.data,
+    inp               = rep(0,length(L)),
+    ppt               = rep(0,length(L)),
+    L1                = NA,
+    #y.obs             = out.data[2:nrow(out.data),2], # WHYYYYY to leave out the first one???
+    y.obs             = out.data[1:nrow(out.data),2],
+    L2                = L,
+    predict.bias.cond = NA,
+    par.tr            = par.tr,
+    par.fix           = par.fix
+  )
+  
+  return(ret)
+}
+
+#---------------------------------------------------------------------
+
+CaPre.bTr.Pre <- function(transf, res.swmm.LPre, L.Pre) {
+  par.tr <- transf$par.tr
+  
+  if (transf$transf == "LogSinh") {
+    inv.fcia <- sysanal.logsinh.inv
+    Par.tr <- c(par.tr["alpha"], par.tr["beta"])
+  }
+  
+  if (transf$transf == "BC") {
+    inv.fcia <- sysanal.boxcox.inv
+    Par.tr <- c(par.tr["l1"], par.tr["l2"])
+  }
+  
+  ret <- list(
+    bct.Y.L2.samp.Pre      = inv.fcia(res.swmm.LPre$Y.L2.samp, Par.tr[1], Par.tr[2]),
+    
+    bct.y.L1.quant.Pre     = inv.fcia(res.swmm.LPre$y.L1.quant, Par.tr[1], Par.tr[2]),
+    bct.y.L2.quant.Pre     = inv.fcia(res.swmm.LPre$y.L2.quant, Par.tr[1], Par.tr[2]),
+    bct.yplusB.L1.quant.Pre= inv.fcia(res.swmm.LPre$yplusB.L1.quant, Par.tr[1], Par.tr[2]),
+    bct.yplusB.L2.quant.Pre= inv.fcia(res.swmm.LPre$yplusB.L2.quant, Par.tr[1], Par.tr[2]),
+    bct.Y.L1.quant.Pre     = inv.fcia(res.swmm.LPre$Y.L1.quant, Par.tr[1], Par.tr[2]),
+    bct.Y.L2.quant.Pre     = inv.fcia(res.swmm.LPre$Y.L2.quant, Par.tr[1], Par.tr[2]),
+    
+    timestepPre = sysanal.decode(L.Pre)[,2]
+  )
+  
+  return(ret)
+}
+
+
+
+#---------------------------------------------------------------------
+
+
+CaPre.bTr.Ca <- function(transf, res.swmm.LCa, L.Ca) {
+  par.tr <- transf$par.tr
+  
+  if (transf$transf == "LogSinh") {
+    inv.fcia <- sysanal.logsinh.inv
+    Par.tr <- c(par.tr["alpha"], par.tr["beta"])
+  }
+  
+  if (transf$transf == "BC") {
+    inv.fcia <- sysanal.boxcox.inv
+    Par.tr <- c(par.tr["l1"], par.tr["l2"])
+  }
+  
+  ret <- list(
+    bct.y.L1.quant.Ca     = inv.fcia(res.swmm.LCa$y.L1.quant, Par.tr[1], Par.tr[2]),
+    bct.y.L2.quant.Ca     = inv.fcia(res.swmm.LCa$y.L2.quant, Par.tr[1], Par.tr[2]),
+    bct.yplusB.L1.quant.Ca= inv.fcia(res.swmm.LCa$yplusB.L1.quant, Par.tr[1], Par.tr[2]),
+    bct.yplusB.L2.quant.Ca= inv.fcia(res.swmm.LCa$yplusB.L2.quant, Par.tr[1], Par.tr[2]),
+    bct.Y.L1.quant.Ca     = inv.fcia(res.swmm.LCa$Y.L1.quant, Par.tr[1], Par.tr[2]),
+    bct.Y.L2.quant.Ca     = inv.fcia(res.swmm.LCa$Y.L2.quant, Par.tr[1], Par.tr[2]),
+    
+    timestepCa=sysanal.decode(L.Ca)[,2]
+  )
+  
+  return(ret)
+}
+
+
+#---------------------------------------------------------------------
+
 CaPre.VerInd.Pre <- function(out.data.Pre, bct.Y.L2.quant.Pre) {
   
   #o=out.data.Pre[2:nrow(out.data.Pre),2] # WHYYYYY to leave out the first one???
@@ -88,9 +251,7 @@ CaPre.VerInd.Pre <- function(out.data.Pre, bct.Y.L2.quant.Pre) {
 
 
 # calculates statistics for prediction events
-statist.CaPre.res <- function(Pre.res, prodata, skip) {   # skip - number of event ignored when calculating overall stats (ret.all)
-  
-  dataPre <- prodata$Pre
+statist.CaPre.res <- function(Pre.res, dataPre, skip) {   # skip - number of event ignored when calculating overall stats (ret.all)
   
   # Verification Indicies (ABW, reliab, MIS, red points)
   VerInd.statistics <- c("ABW", "relABW", "reliab", "MIS", "relMIS", "n.timesteps", "n.red.points")
@@ -178,39 +339,39 @@ statist.CaPre.res <- function(Pre.res, prodata, skip) {   # skip - number of eve
     Qmod.95   <- bct$bct.Y.L2.quant.Pre[(row.names(bct$bct.Y.L2.quant.Pre)=="0.95"),]
     Qmod.05   <- bct$bct.Y.L2.quant.Pre[(row.names(bct$bct.Y.L2.quant.Pre)=="0.05"),]
     
-      # NS efficiency
-      NS.mean <- enesko(mod = Qmod.mean, obs = obs)
-      NS.95   <- enesko(mod = Qmod.95, obs = obs)
-      NS.05   <- enesko(mod = Qmod.05, obs = obs)
+    # NS efficiency
+    NS.mean <- enesko(mod = Qmod.mean, obs = obs)
+    NS.95   <- enesko(mod = Qmod.95, obs = obs)
+    NS.05   <- enesko(mod = Qmod.05, obs = obs)
     
-      # relative errors delta for total V
-      Vmod.mean <- Vtot(Qdata = Qmod.mean, timestep = timestep)
-      Vmod.95   <- Vtot(Qdata = Qmod.95  , timestep = timestep)
-      Vmod.05   <- Vtot(Qdata = Qmod.05  , timestep = timestep)
-      
-      deltaV.mean <-  round( (Vmod.mean - Vobs) / Vobs, 3 )
-      deltaV.95   <-  round( (Vmod.95   - Vobs) / Vobs, 3 )
-      deltaV.05   <-  round( (Vmod.05   - Vobs) / Vobs, 3 )
-      
-      # relative errors delta for peak V
-      Vpeak.mod.mean <- Vpeak(Qdata = Qmod.mean, timestep = timestep)
-      Vpeak.mod.95   <- Vpeak(Qdata = Qmod.95  , timestep = timestep)
-      Vpeak.mod.05   <- Vpeak(Qdata = Qmod.05  , timestep = timestep)
-      
-      deltaVpeak.mean <-  round( (Vpeak.mod.mean - Vpeak.obs) / Vpeak.obs, 3 )
-      deltaVpeak.95   <-  round( (Vpeak.mod.95   - Vpeak.obs) / Vpeak.obs, 3 )
-      deltaVpeak.05   <-  round( (Vpeak.mod.05   - Vpeak.obs) / Vpeak.obs, 3 )
+    # relative errors delta for total V
+    Vmod.mean <- Vtot(Qdata = Qmod.mean, timestep = timestep)
+    Vmod.95   <- Vtot(Qdata = Qmod.95  , timestep = timestep)
+    Vmod.05   <- Vtot(Qdata = Qmod.05  , timestep = timestep)
     
-      # Qmax time shifts
-      shift.mean <- time.shift(series1 = Qmod.mean, series2 = obs, timestep = timestep)
-      shift.95   <- time.shift(series1 = Qmod.95,   series2 = obs, timestep = timestep)
-      shift.05   <- time.shift(series1 = Qmod.05,   series2 = obs, timestep = timestep)
+    deltaV.mean <-  round( (Vmod.mean - Vobs) / Vobs, 3 )
+    deltaV.95   <-  round( (Vmod.95   - Vobs) / Vobs, 3 )
+    deltaV.05   <-  round( (Vmod.05   - Vobs) / Vobs, 3 )
     
-      # interval scores for total V and peak V
-      IS.V     <- quscore(x=c(Vmod.05, Vmod.95, Vobs), conf=0.1); IS.V <- round(IS.V, 0) # [l]
-      IS.Vpeak <- quscore(x=c(Vpeak.mod.05, Vpeak.mod.95, Vpeak.obs), conf=0.1); IS.Vpeak <- round(IS.Vpeak, 0) # [l]
+    # relative errors delta for peak V
+    Vpeak.mod.mean <- Vpeak(Qdata = Qmod.mean, timestep = timestep)
+    Vpeak.mod.95   <- Vpeak(Qdata = Qmod.95  , timestep = timestep)
+    Vpeak.mod.05   <- Vpeak(Qdata = Qmod.05  , timestep = timestep)
     
-        
+    deltaVpeak.mean <-  round( (Vpeak.mod.mean - Vpeak.obs) / Vpeak.obs, 3 )
+    deltaVpeak.95   <-  round( (Vpeak.mod.95   - Vpeak.obs) / Vpeak.obs, 3 )
+    deltaVpeak.05   <-  round( (Vpeak.mod.05   - Vpeak.obs) / Vpeak.obs, 3 )
+    
+    # Qmax time shifts
+    shift.mean <- time.shift(series1 = Qmod.mean, series2 = obs, timestep = timestep)
+    shift.95   <- time.shift(series1 = Qmod.95,   series2 = obs, timestep = timestep)
+    shift.05   <- time.shift(series1 = Qmod.05,   series2 = obs, timestep = timestep)
+    
+    # interval scores for total V and peak V
+    IS.V     <- quscore(x=c(Vmod.05, Vmod.95, Vobs), conf=0.1); IS.V <- round(IS.V, 0) # [l]
+    IS.Vpeak <- quscore(x=c(Vpeak.mod.05, Vpeak.mod.95, Vpeak.obs), conf=0.1); IS.Vpeak <- round(IS.Vpeak, 0) # [l]
+    
+    
     ret[i,] <- c(id, NS.mean, NS.95, NS.05, 
                  deltaV.mean, deltaV.95, deltaV.05, 
                  round(mean(event.table[,5]), 3), round(sd(event.table[,5]), 3), # dV
@@ -219,7 +380,7 @@ statist.CaPre.res <- function(Pre.res, prodata, skip) {   # skip - number of eve
                  shift.mean, shift.95, shift.05,
                  round(mean(event.table[,4]), 3), round(sd(event.table[,4]), 3), # time shift
                  round(mean(event.table[,1]), 3), round(sd(event.table[,1]), 3)  # NS
-                )
+    )
   }
   
   bind.ret <- cbind(ret, VerInd.stat)
@@ -232,7 +393,8 @@ statist.CaPre.res <- function(Pre.res, prodata, skip) {   # skip - number of eve
                round(mean(event.table.all[,6], na.rm=T), 3), round(sd(event.table.all[,6], na.rm=T), 3),  # dVpeak
                round(mean(event.table.all[,4], na.rm=T), 3), round(sd(event.table.all[,4], na.rm=T), 3),  # time shift
                round(mean(event.table.all[,1], na.rm=T), 3), round(sd(event.table.all[,1], na.rm=T), 3), # NS
-               round(sum(as.numeric(bind.ret$n.red.points[-skip])) / sum(as.numeric(bind.ret$n.timesteps[-skip]))  , 3) # reliab
+               round( sum(as.numeric(bind.ret$n.red.points[!1:length(bind.ret$n.red.points) %in% skip])) / 
+                      sum(as.numeric(bind.ret$n.timesteps [!1:length(bind.ret$n.timesteps) %in% skip]))  , 3) # reliab
               )
   names(ret.all) <- c(my.stats[c(8, 9, 13, 14, 18, 19, 20, 21)], "reliab")
   
@@ -256,7 +418,7 @@ plot.Pre.res <- function(pack.dir, prodata, to.plot.list, Ca.res) {
     MCMC.propa <- to.plot.list[[j]]$Pre.res$MCMC.propa
     
     pdf( paste(pack.dir, "/4_predict_chains+margs_", names(to.plot.list)[j], ".pdf", sep="") )
-      RAMtoplot3 <- Ca.res$RAM
+      RAMtoplot3 <- RAM
       RAMtoplot3$samples <- MCMC.propa
       RAMtoplot3 <- adaptMCMC::convert.to.coda(RAMtoplot3)
       plot(RAMtoplot3)
@@ -277,18 +439,18 @@ plot.Pre.res <- function(pack.dir, prodata, to.plot.list, Ca.res) {
     statistics <- to.plot.list[[j]]$statistics[[1]] 
     transf     <- to.plot.list[[j]]$transf
       
-    for (i in 1 : length(prodata$Ca)) {
+    for (i in 1 : length(dataCa)) {
       hydrographsCa[[i]] <- list( timestepCa = Pre.res$bTr.Ca[[i]]$timestepCa, 
-                                  data.Ca = prodata$Ca[[i]], 
+                                  data.Ca = dataCa[[i]], 
                                   bct = Pre.res$bTr.Ca[[i]],
                                   transf = transf,
                                   data.source = names(to.plot.list)[j]
                                 ) 
     }
       
-    for (i in 1 : length(prodata$Pre)) {
+    for (i in 1 : length(dataPre)) {
       hydrographsPre[[i]] <- list( timestepPre = Pre.res$bTr.Pre[[i]]$timestepPre, 
-                                   data.Pre = prodata$Pre[[i]], 
+                                   data.Pre = dataPre[[i]], 
                                    bct = Pre.res$bTr.Pre[[i]],
                                    bind.ret = statistics$bind.ret[i,],
                                    VerInd = statistics$VerInd[[i]],
@@ -418,208 +580,208 @@ plot.Pre.res <- function(pack.dir, prodata, to.plot.list, Ca.res) {
     dev.off()
     
     
-    # boxplots A 
-    pdf( paste(pack.dir, "/00_Pre_", names(to.plot.list[[1]]$statistics)[ii], "_stats_bxpltA.pdf", sep="") , height = 6,  width = 7)
-      nValues <- length(to.plot.list[[1]]$statistics[[ii]]$boxplot.data[1,]) * 
-                 length(to.plot.list[[1]]$statistics[[ii]]$boxplot.data[,1])    
-      BoxPlot <- data.frame(matrix(NA, ncol=3, nrow= nValues * length(to.plot.list)))
-      colnames(BoxPlot) <- c("value", "metric", "datSrc")
-      
-      for (i in 1:length(to.plot.list)) {
-        for (j in 1:length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[1,])) {
-          pos <- (i-1) * nValues + 
-                 (j-1) * (length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,1])) + 
-                 (1 : length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,1]))
-          BoxPlot$value [pos]  <- to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,j]
-          BoxPlot$metric[pos]  <- colnames(to.plot.list[[i]]$statistics[[ii]]$boxplot.data)[j]
-          BoxPlot$datSrc[pos]  <- names(to.plot.list)[i]
-        }
-      }
-      
-      par(tcl=-0.5, family="serif", omi=c(0,0,0,0), cex.lab=0.8, cex.axis=0.7, cex.main=0.8,
-          mai=c(0.3, 0.5, 0.2, 0.1), mgp=c(1.3, 0.6, 0) )
-      split.screen(c(2, 1))       # splits display into two screens
-      split.screen(c(1, 3), screen = 1) # splits the top    half into 3
-      split.screen(c(1, 3), screen = 2) # splits the bottom half into 3
-      
-      # plot up left
-      screen(3) 
-        Plot1 <- c( which( BoxPlot$metric == paste("E(", intToUtf8(0x03B4), "V)", sep="") ),        # delta V
-                    which( BoxPlot$metric == paste("E(", intToUtf8(0x03B4), "Vpeak)", sep="") )     # delta Vpeak
-                   )    
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n',
-                col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7),  ylab = "[-]",
-                ylim = c(-max(abs(BoxPlot$value[Plot1])), max(abs(BoxPlot$value[Plot1]))) )
-        legend(x = "top", legend = names( to.plot.list)[order(names(to.plot.list))],
-               fill = c('white', 'gray80', 'gray30'), cex = 0.6, horiz = T )
-        axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-             labels = c(paste("E(", intToUtf8(0x03B4), "V)", sep=""), paste("E(", intToUtf8(0x03B4), "Vpeak)", sep="")) )
-        lines(x=c(0,8), y=c(0,0), lty=2 )
-      close.screen(3)      
-      
-      # plot up middle
-      screen(4)
-        Plot1 <- c( which( BoxPlot$metric == paste("sd(", intToUtf8(0x03B4), "V)", sep="") ),        # sd V   
-                    which( BoxPlot$metric == paste("sd(", intToUtf8(0x03B4), "Vpeak)", sep="") )     # sd Vpeak
-        ) 
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1],  xaxt='n',
-                col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7), ylab = "[-]",
-                ylim = c(0, max(abs(BoxPlot$value[Plot1]))),
-                main = "A - variations among events")     # title of the pdf file
-        axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-             labels=c(paste("sd(", intToUtf8(0x03B4), "V)", sep=""), paste("sd(", intToUtf8(0x03B4), "Vpeak)", sep="")) )
-        lines(x=c(0,8), y=c(0,0), lty=2)
-      close.screen(4) 
-      
-      # plot up right
-      screen(5)
-        Plot1 <- c( which( BoxPlot$metric == "reliab" ) )
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[%]",
-                col = c('white', 'gray80', 'gray30') , ylim = c(0, 100))
-        axis(side = 1, at = c(2), line = -0.8, lwd = 0,
-             labels=c("reliab") )
-      close.screen(5) 
-      
-      # plot down left
-      screen(6) 
-        Plot1 <- c( which( BoxPlot$metric ==  "E(NSE)" ),        
-                    which( BoxPlot$metric == "sd(NSE)" )     
-        )    
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[-]",,
-                col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
-        axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-             labels=c("E(NSE)", "sd(NSE)") )
-        lines(x=c(0,8), y=c(0,0), lty=2)
-      close.screen(6) 
-      
-      # plot down middle
-      screen(7) 
-        Plot1 <- c( which( BoxPlot$metric ==  "E(shift(Qmax))" ),        
-                    which( BoxPlot$metric == "sd(shift(Qmax))" )     
-        )    
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[h]",
-                col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
-        axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-             labels=c("E(shift(Qmax))", "sd(shift(Qmax))") )
-        lines(x=c(0,8), y=c(0,0), lty=2)
-      close.screen(7) 
-      
-      # plot down right
-      screen(8) 
-        Plot1 <- c( which( BoxPlot$metric == "relABW" ),        
-                    which( BoxPlot$metric == "relMIS" )     
-        )    
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[?]",
-                col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
-        axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-             labels=c("relABW", "relMIS") )
-        lines(x=c(0,8), y=c(0,0), lty=2)
-      close.screen(8) 
-      
-    close.screen(all = TRUE)
-    dev.off()
-    
-    
-    # boxplots B (   E(dV)   vs   dV(E(Y))   )
-    pdf( paste(pack.dir, "/00_Pre_", names(to.plot.list[[1]]$statistics)[ii], "_stats_bxpltB.pdf", sep="") , height = 6,  width = 7)
-      nValues <- length(to.plot.list[[1]]$statistics[[ii]]$boxplot.data[1,]) * 
-                 length(to.plot.list[[1]]$statistics[[ii]]$boxplot.data[,1])    
-      BoxPlot <- data.frame(matrix(NA, ncol=3, nrow= nValues * length(to.plot.list)))
-      colnames(BoxPlot) <- c("value", "metric", "datSrc")
-      
-      for (i in 1:length(to.plot.list)) {
-        for (j in 1:length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[1,])) {
-          pos <- (i-1) * nValues + 
-            (j-1) * (length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,1])) + 
-            (1 : length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,1]))
-          BoxPlot$value [pos]  <- to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,j]
-          BoxPlot$metric[pos]  <- colnames(to.plot.list[[i]]$statistics[[ii]]$boxplot.data)[j]
-          BoxPlot$datSrc[pos]  <- names(to.plot.list)[i]
-        }
-      }
-      
-      par(tcl=-0.5, family="serif", omi=c(0,0,0,0), cex.lab=0.8, cex.axis=0.7, cex.main=0.8,
-          mai=c(0.3, 0.5, 0.2, 0.1), mgp=c(1.3, 0.6, 0) )
-      split.screen(c(2, 1))       # splits display into two screens
-      split.screen(c(1, 3), screen = 1) # splits the top    half into 3
-      split.screen(c(1, 3), screen = 2) # splits the bottom half into 3
-      
-      # plot up left
-      screen(3) 
-        Plot1 <- c( which( BoxPlot$metric == paste("E(", intToUtf8(0x03B4), "V)", sep="") ),        # delta V
-                    which( BoxPlot$metric == paste("E(", intToUtf8(0x03B4), "Vpeak)", sep="") )     # delta Vpeak
-                   )     
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n',
-                col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7),  ylab = "[-]",
-                ylim = c(-max(abs(BoxPlot$value[Plot1])), max(abs(BoxPlot$value[Plot1]))) )
-        legend(x = "top", legend = names( to.plot.list)[order(names(to.plot.list))],
-               fill = c('white', 'gray80', 'gray30'), cex = 0.6, horiz = T )
-        axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-             labels = c(paste("E(", intToUtf8(0x03B4), "V)", sep=""), paste("E(", intToUtf8(0x03B4), "Vpeak)", sep="")) )
-        lines(x=c(0,8), y=c(0,0), lty=2 )
-      close.screen(3)      
-      
-      # plot up middle
-      screen(4)
-        Plot1 <- c( which( BoxPlot$metric == paste(intToUtf8(0x03B4), "V(E(Y))", sep="") ),        # delta V(E(Y)
-                    which( BoxPlot$metric == paste(intToUtf8(0x03B4), "Vpeak(E(Y))", sep="") )     # delta Vpeak(E(Y)
-                   ) 
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1],  xaxt='n',
-                col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7), ylab = "[-]",
-                ylim = c(-max(abs(BoxPlot$value[Plot1])), max(abs(BoxPlot$value[Plot1]))),
-                main = "B - E(X) vs. X(E(Y))")     # title of the pdf file
-        axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-             labels=c(paste(intToUtf8(0x03B4), "V(E(Y))", sep=""), paste(intToUtf8(0x03B4), "Vpeak(E(Y))", sep="")) )
-        lines(x=c(0,8), y=c(0,0), lty=2)
-      close.screen(4) 
-      
-      # plot up right
-      screen(5)
-        Plot1 <- c( which( BoxPlot$metric == "reliab" ) )
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[%]",
-                col = c('white', 'gray80', 'gray30') , ylim = c(0, 100))
-        axis(side = 1, at = c(2), line = -0.8, lwd = 0,
-             labels=c("reliab") )
-      close.screen(5) 
-      
-      # plot down left
-      screen(6) 
-        Plot1 <- c( which( BoxPlot$metric ==  "E(NSE)" ),        
-                    which( BoxPlot$metric == "NSE(E(Y))" )     
-        )    
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[-]",,
-                col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
-        axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-             labels=c("E(NSE)", "NSE(E(Y))") )
-        lines(x=c(0,8), y=c(0,0), lty=2)
-      close.screen(6) 
-      
-      # plot down middle
-      screen(7) 
-        Plot1 <- c( which( BoxPlot$metric ==  "E(shift(Qmax))" ),        
-                    which( BoxPlot$metric == "shift(Qmax(E(Y)))" )     
-        )    
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[h]",
-                col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
-        axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-             labels=c("E(shift(Qmax))", "shift(Qmax(E(Y)))") )
-        lines(x=c(0,8), y=c(0,0), lty=2)
-      close.screen(7) 
-      
-      # plot down right
-      screen(8) 
-        Plot1 <- c( which( BoxPlot$metric == "relABW" ),        
-                    which( BoxPlot$metric == "relMIS" )     
-        )    
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[?]",
-                col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
-        axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-             labels=c("relABW", "relMIS") )
-        lines(x=c(0,8), y=c(0,0), lty=2)
-      close.screen(8) 
-    
-    close.screen(all = TRUE)
-    dev.off()
+    # # boxplots A 
+    # pdf( paste(pack.dir, "/00_Pre_", names(to.plot.list[[1]]$statistics)[ii], "_stats_bxpltA.pdf", sep="") , height = 6,  width = 7)
+    #   nValues <- length(to.plot.list[[1]]$statistics[[ii]]$boxplot.data[1,]) * 
+    #              length(to.plot.list[[1]]$statistics[[ii]]$boxplot.data[,1])    
+    #   BoxPlot <- data.frame(matrix(NA, ncol=3, nrow= nValues * length(to.plot.list)))
+    #   colnames(BoxPlot) <- c("value", "metric", "datSrc")
+    #   
+    #   for (i in 1:length(to.plot.list)) {
+    #     for (j in 1:length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[1,])) {
+    #       pos <- (i-1) * nValues + 
+    #              (j-1) * (length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,1])) + 
+    #              (1 : length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,1]))
+    #       BoxPlot$value [pos]  <- to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,j]
+    #       BoxPlot$metric[pos]  <- colnames(to.plot.list[[i]]$statistics[[ii]]$boxplot.data)[j]
+    #       BoxPlot$datSrc[pos]  <- names(to.plot.list)[i]
+    #     }
+    #   }
+    #   
+    #   par(tcl=-0.5, family="serif", omi=c(0,0,0,0), cex.lab=0.8, cex.axis=0.7, cex.main=0.8,
+    #       mai=c(0.3, 0.5, 0.2, 0.1), mgp=c(1.3, 0.6, 0) )
+    #   split.screen(c(2, 1))       # splits display into two screens
+    #   split.screen(c(1, 3), screen = 1) # splits the top    half into 3
+    #   split.screen(c(1, 3), screen = 2) # splits the bottom half into 3
+    #   
+    #   # plot up left
+    #   screen(3) 
+    #     Plot1 <- c( which( BoxPlot$metric == paste("E(", intToUtf8(0x03B4), "V)", sep="") ),        # delta V
+    #                 which( BoxPlot$metric == paste("E(", intToUtf8(0x03B4), "Vpeak)", sep="") )     # delta Vpeak
+    #                )    
+    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n',
+    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7),  ylab = "[-]",
+    #             ylim = c(-max(abs(BoxPlot$value[Plot1])), max(abs(BoxPlot$value[Plot1]))) )
+    #     legend(x = "top", legend = names( to.plot.list)[order(names(to.plot.list))],
+    #            fill = c('white', 'gray80', 'gray30'), cex = 0.6, horiz = T )
+    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
+    #          labels = c(paste("E(", intToUtf8(0x03B4), "V)", sep=""), paste("E(", intToUtf8(0x03B4), "Vpeak)", sep="")) )
+    #     lines(x=c(0,8), y=c(0,0), lty=2 )
+    #   close.screen(3)      
+    #   
+    #   # plot up middle
+    #   screen(4)
+    #     Plot1 <- c( which( BoxPlot$metric == paste("sd(", intToUtf8(0x03B4), "V)", sep="") ),        # sd V   
+    #                 which( BoxPlot$metric == paste("sd(", intToUtf8(0x03B4), "Vpeak)", sep="") )     # sd Vpeak
+    #     ) 
+    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1],  xaxt='n',
+    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7), ylab = "[-]",
+    #             ylim = c(0, max(abs(BoxPlot$value[Plot1]))),
+    #             main = "A - variations among events")     # title of the pdf file
+    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
+    #          labels=c(paste("sd(", intToUtf8(0x03B4), "V)", sep=""), paste("sd(", intToUtf8(0x03B4), "Vpeak)", sep="")) )
+    #     lines(x=c(0,8), y=c(0,0), lty=2)
+    #   close.screen(4) 
+    #   
+    #   # plot up right
+    #   screen(5)
+    #     Plot1 <- c( which( BoxPlot$metric == "reliab" ) )
+    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[%]",
+    #             col = c('white', 'gray80', 'gray30') , ylim = c(0, 100))
+    #     axis(side = 1, at = c(2), line = -0.8, lwd = 0,
+    #          labels=c("reliab") )
+    #   close.screen(5) 
+    #   
+    #   # plot down left
+    #   screen(6) 
+    #     Plot1 <- c( which( BoxPlot$metric ==  "E(NSE)" ),        
+    #                 which( BoxPlot$metric == "sd(NSE)" )     
+    #     )    
+    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[-]",,
+    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
+    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
+    #          labels=c("E(NSE)", "sd(NSE)") )
+    #     lines(x=c(0,8), y=c(0,0), lty=2)
+    #   close.screen(6) 
+    #   
+    #   # plot down middle
+    #   screen(7) 
+    #     Plot1 <- c( which( BoxPlot$metric ==  "E(shift(Qmax))" ),        
+    #                 which( BoxPlot$metric == "sd(shift(Qmax))" )     
+    #     )    
+    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[h]",
+    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
+    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
+    #          labels=c("E(shift(Qmax))", "sd(shift(Qmax))") )
+    #     lines(x=c(0,8), y=c(0,0), lty=2)
+    #   close.screen(7) 
+    #   
+    #   # plot down right
+    #   screen(8) 
+    #     Plot1 <- c( which( BoxPlot$metric == "relABW" ),        
+    #                 which( BoxPlot$metric == "relMIS" )     
+    #     )    
+    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[?]",
+    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
+    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
+    #          labels=c("relABW", "relMIS") )
+    #     lines(x=c(0,8), y=c(0,0), lty=2)
+    #   close.screen(8) 
+    #   
+    # close.screen(all = TRUE)
+    # dev.off()
+    # 
+    # 
+    # # boxplots B (   E(dV)   vs   dV(E(Y))   )
+    # pdf( paste(pack.dir, "/00_Pre_", names(to.plot.list[[1]]$statistics)[ii], "_stats_bxpltB.pdf", sep="") , height = 6,  width = 7)
+    #   nValues <- length(to.plot.list[[1]]$statistics[[ii]]$boxplot.data[1,]) * 
+    #              length(to.plot.list[[1]]$statistics[[ii]]$boxplot.data[,1])    
+    #   BoxPlot <- data.frame(matrix(NA, ncol=3, nrow= nValues * length(to.plot.list)))
+    #   colnames(BoxPlot) <- c("value", "metric", "datSrc")
+    #   
+    #   for (i in 1:length(to.plot.list)) {
+    #     for (j in 1:length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[1,])) {
+    #       pos <- (i-1) * nValues + 
+    #         (j-1) * (length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,1])) + 
+    #         (1 : length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,1]))
+    #       BoxPlot$value [pos]  <- to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,j]
+    #       BoxPlot$metric[pos]  <- colnames(to.plot.list[[i]]$statistics[[ii]]$boxplot.data)[j]
+    #       BoxPlot$datSrc[pos]  <- names(to.plot.list)[i]
+    #     }
+    #   }
+    #   
+    #   par(tcl=-0.5, family="serif", omi=c(0,0,0,0), cex.lab=0.8, cex.axis=0.7, cex.main=0.8,
+    #       mai=c(0.3, 0.5, 0.2, 0.1), mgp=c(1.3, 0.6, 0) )
+    #   split.screen(c(2, 1))       # splits display into two screens
+    #   split.screen(c(1, 3), screen = 1) # splits the top    half into 3
+    #   split.screen(c(1, 3), screen = 2) # splits the bottom half into 3
+    #   
+    #   # plot up left
+    #   screen(3) 
+    #     Plot1 <- c( which( BoxPlot$metric == paste("E(", intToUtf8(0x03B4), "V)", sep="") ),        # delta V
+    #                 which( BoxPlot$metric == paste("E(", intToUtf8(0x03B4), "Vpeak)", sep="") )     # delta Vpeak
+    #                )     
+    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n',
+    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7),  ylab = "[-]",
+    #             ylim = c(-max(abs(BoxPlot$value[Plot1])), max(abs(BoxPlot$value[Plot1]))) )
+    #     legend(x = "top", legend = names( to.plot.list)[order(names(to.plot.list))],
+    #            fill = c('white', 'gray80', 'gray30'), cex = 0.6, horiz = T )
+    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
+    #          labels = c(paste("E(", intToUtf8(0x03B4), "V)", sep=""), paste("E(", intToUtf8(0x03B4), "Vpeak)", sep="")) )
+    #     lines(x=c(0,8), y=c(0,0), lty=2 )
+    #   close.screen(3)      
+    #   
+    #   # plot up middle
+    #   screen(4)
+    #     Plot1 <- c( which( BoxPlot$metric == paste(intToUtf8(0x03B4), "V(E(Y))", sep="") ),        # delta V(E(Y)
+    #                 which( BoxPlot$metric == paste(intToUtf8(0x03B4), "Vpeak(E(Y))", sep="") )     # delta Vpeak(E(Y)
+    #                ) 
+    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1],  xaxt='n',
+    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7), ylab = "[-]",
+    #             ylim = c(-max(abs(BoxPlot$value[Plot1])), max(abs(BoxPlot$value[Plot1]))),
+    #             main = "B - E(X) vs. X(E(Y))")     # title of the pdf file
+    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
+    #          labels=c(paste(intToUtf8(0x03B4), "V(E(Y))", sep=""), paste(intToUtf8(0x03B4), "Vpeak(E(Y))", sep="")) )
+    #     lines(x=c(0,8), y=c(0,0), lty=2)
+    #   close.screen(4) 
+    #   
+    #   # plot up right
+    #   screen(5)
+    #     Plot1 <- c( which( BoxPlot$metric == "reliab" ) )
+    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[%]",
+    #             col = c('white', 'gray80', 'gray30') , ylim = c(0, 100))
+    #     axis(side = 1, at = c(2), line = -0.8, lwd = 0,
+    #          labels=c("reliab") )
+    #   close.screen(5) 
+    #   
+    #   # plot down left
+    #   screen(6) 
+    #     Plot1 <- c( which( BoxPlot$metric ==  "E(NSE)" ),        
+    #                 which( BoxPlot$metric == "NSE(E(Y))" )     
+    #     )    
+    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[-]",,
+    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
+    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
+    #          labels=c("E(NSE)", "NSE(E(Y))") )
+    #     lines(x=c(0,8), y=c(0,0), lty=2)
+    #   close.screen(6) 
+    #   
+    #   # plot down middle
+    #   screen(7) 
+    #     Plot1 <- c( which( BoxPlot$metric ==  "E(shift(Qmax))" ),        
+    #                 which( BoxPlot$metric == "shift(Qmax(E(Y)))" )     
+    #     )    
+    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[h]",
+    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
+    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
+    #          labels=c("E(shift(Qmax))", "shift(Qmax(E(Y)))") )
+    #     lines(x=c(0,8), y=c(0,0), lty=2)
+    #   close.screen(7) 
+    #   
+    #   # plot down right
+    #   screen(8) 
+    #     Plot1 <- c( which( BoxPlot$metric == "relABW" ),        
+    #                 which( BoxPlot$metric == "relMIS" )     
+    #     )    
+    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[?]",
+    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
+    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
+    #          labels=c("relABW", "relMIS") )
+    #     lines(x=c(0,8), y=c(0,0), lty=2)
+    #   close.screen(8) 
+    # 
+    # close.screen(all = TRUE)
+    # dev.off()
     
     
     # boxplots C  ( all iterations )
