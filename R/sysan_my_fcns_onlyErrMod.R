@@ -206,7 +206,7 @@ sysanal.predict.inp.bias.L1.JA <- function(par,model,L1,y.obs,
   
   
   
-  Y.mean.L1 <- y.calc.L1.trans + (Sigma.Bs.L1)%*% Sum.Sigma.L1.inv %*% ( y.obs.trans - y.calc.L1.trans ) 
+  Y.mean.L1 <- y.calc.L1.trans + (Sigma.Bs.L1) %*% Sum.Sigma.L1.inv %*% ( y.obs.trans - y.calc.L1.trans ) 
   Y.var.L1  <- diag((Sigma.Bs.L1) %*% Sum.Sigma.L1.inv %*% (Sigma.Eps.L1)) + diag(Sigma.Eps.L1) 
   
   names(Y.mean.L1) <- L1.encoded
@@ -235,14 +235,15 @@ sysanal.predict.inp.bias.L1.JA <- function(par,model,L1,y.obs,
 # Input-dependent B and E conditional on parameters 
 # ---------------------------------------------------------------------------
 
-sysanal.predict.bias.OU.JA <- function( parsamp.L1,model,L1,y.obs, #CMP
-                                     predict.bias.cond,
-                                     ppt,
-                                     probs=c(0.025,0.05,0.25,0.5,0.75,0.95,0.975),
-                                     L2,y.calc=NA, 
-                                     par.tr,par.fix=NULL, 
-                                     inp , 
-                                     ... )  {
+sysanal.predict.bias.OU.JA <- function( parsamp.L1, model, L1, y.obs, #CMP
+                                        predict.bias.cond,
+                                        ppt,
+                                        probs=c(0.025,0.05,0.25,0.5,0.75,0.95,0.975),
+                                        L2, y.calc=NA, 
+                                        par.tr, par.fix=NULL, 
+                                        inp , 
+                                        ... )  {
+  
   
   # decode likelihood definitions:
   
@@ -341,8 +342,8 @@ sysanal.predict.bias.OU.JA <- function( parsamp.L1,model,L1,y.obs, #CMP
     par <- c(parsamp.L1[j,],par.fix)
     
     if ( !is.na(L1[1]) ) {  
-      if ( j==1 | sum((par-par.old)^2, na.rm = T) != 0 )  { # do not reevaluate if parameter
-        # values stayed the same
+      if ( j==1 | sum((par-par.old)^2, na.rm = T) != 0 )  { # do not reevaluate if parameter values stayed the same
+        
         par.old <- par
         num.eval <- num.eval + 1      
         res <- predict.bias.cond(par     = par,
@@ -355,42 +356,32 @@ sysanal.predict.bias.OU.JA <- function( parsamp.L1,model,L1,y.obs, #CMP
                                  inp     = inp ,
                                  ...)
       }
-      
       y.L1.samp[j,] <- res$y.calc.L1; # remember: it's transformed
       
       if ( n2 > 0 ) y.L2.samp[j,] <- res$y.calc.L2; # remember: it's transformed  
       
+      
+      
     } else { # i.e. if there is just L2
       
       y.calc.L2    <- model(par, L2, ...)
-      #y.calc.L2    <- model(par = par, L = L2, eventID = eventID)
       names(y.calc.L2) <- rownames(L2)
       
-      # transform results and observations FOR MULTIOUTPUT WITH DIFFERENT TRANSF OF EACH:
       
+      # transform results and observations FOR MULTIOUTPUT WITH DIFFERENT TRANSF OF EACH:
       out.vars  <- unique(as.character(L.decoded$var))
+      
       
       y.calc.L2.trans <- rep(NA, length(y.calc.L2))
       
-      
-      
-      if(!is.na(par.tr[paste("l1")])) 
-      {
+      if(!is.na(par.tr[paste("l1")]))  {
         y.calc.L2.trans  <- sysanal.boxcox(y.calc.L2,par.tr[paste("l1")],par.tr["l2"])
-        
-      } else {
-        
-        #JA#
+      } else {                                                                             #JA#
         #if (!is.na(par.tr[paste("alpha",var, sep="_")])) 
-        if (!is.na(par.tr[paste("alpha")]))
-          
-        {
+        if (!is.na(par.tr[paste("alpha")])) {
           #y.calc.L2.trans [ind.var.L2]  <- sysanal.logsinh(y.calc.L2[ind.var.L2],par.tr[paste("alpha")],par.tr[paste("beta",var, sep="_")])
           y.calc.L2.trans <- sysanal.logsinh(y.calc.L2, par.tr[paste("alpha")], par.tr[paste("beta")])          
-          
-        }
-        #JA#
-        else      {
+        } else  {                                                                          #JA#
           print("problem with transf param in pred")
         }
       }
@@ -399,35 +390,33 @@ sysanal.predict.bias.OU.JA <- function( parsamp.L1,model,L1,y.obs, #CMP
       
     }
     
+    
+    
+    
     # Draw realization/OU paths of the errors
-    # -----------------------------------
-    if ( !is.na(L1[1]) )
-    {
+    if ( !is.na(L1[1]) ) {
       
-      for ( i in 1:n1 )
-      {
+      for ( i in 1:n1 ) {
         var <- res$Y.var.L1[i]
-        if ( var < 0 ) 
-        { 
+        if ( var < 0 ) { 
           cat("* Warning: negative variance of Y:",var,"at",L1.encoded[i],"\n") 
           var <- 0; neg.var.Y.L1[i] <- neg.var.Y.L1[i]+1
         }
-        Y.L1.samp[j,i] <- rnorm(1,res$Y.mean.L1[i],sqrt(var)) # Draw realizations for Y
+        Y.L1.samp[j,i] <- rnorm( 1, res$Y.mean.L1[i] , sqrt(var) ) # Draw realizations for Y
       }
-      if ( ! is.na(res$Bs.mean.L1[1]) )
-      {
-        for ( i in 1:n1 )
-        {   
+      
+      if ( ! is.na(res$Bs.mean.L1[1]) ) {
+        
+        for ( i in 1:n1 ) {   
           var <- res$Bs.var.L1[i]
-          if ( var < 0 ) 
-          { 
+          if ( var < 0 ) { 
             cat("* Warning: negative variance of Bs:",var,"at",L1.encoded[i],"\n") 
             var <- 0; neg.var.Bs.L1[i] <- neg.var.Bs.L1[i]+1 
           }
-          Bs.L1.samp[j,i] <- rnorm(1,res$Bs.mean.L1[i],sqrt(var))  # Draw realizations for Bs 
+          Bs.L1.samp[j,i] <- rnorm( 1, res$Bs.mean.L1[i], sqrt(var) )  # Draw realizations for Bs 
         }
-        for ( i in 1:n1 )
-        {   
+        
+        for ( i in 1:n1 ) {   
           var <- res$Bf.var.L1[i]
           #         if ( var < 0 ) 
           #         { 
@@ -437,7 +426,6 @@ sysanal.predict.bias.OU.JA <- function( parsamp.L1,model,L1,y.obs, #CMP
           #         Bf.L1.samp[j,i] <- rnorm(1,res$Bf.mean.L1[i],sqrt(var))  # Draw realizations for Bf 
         }
       }
-      
     }
     
     
@@ -450,20 +438,18 @@ sysanal.predict.bias.OU.JA <- function( parsamp.L1,model,L1,y.obs, #CMP
   neg.var.Y.L1 <- neg.var.Y.L1/n1
   
   
-  # AR(1) predictions in L2 
-  # --------------------------------------------------
   
-  if ( n2 > 0 )
-  {
+  # AR(1) predictions in L2 
+  
+  if ( n2 > 0 )  {
     Dt        <- L.decoded$val[2]-L.decoded$val[1]
     vars <- unique(L.decoded$var)
     var=vars[1]
-    for ( var in vars )
-    {
+    for ( var in vars ) {
       out_count = which(vars==var) # which variable are we obs: i, ii, iii...
       
-      for ( j in 1:nrow(parsamp.L1) ) # for all (selected) MCMC realizations (of several parameter sets) # Add: for every variable
-      {                               # draw realizations of the observed system output and the model
+      for ( j in 1:nrow(parsamp.L1) ) {   # for all (selected) MCMC realizations (of several parameter sets) # Add: for every variable
+                                          # draw realizations of the observed system output and the model
         par       <- c(parsamp.L1[j,],par.fix)
         
         beta      <- 1/par["corrlen"]^1; if ( is.na(beta) ) beta <- 0 # !!difference with original!!     
@@ -482,7 +468,7 @@ sysanal.predict.bias.OU.JA <- function( parsamp.L1,model,L1,y.obs, #CMP
         #         if (!is.na(y.obs))    bs        = Bs.L1.samp[j,n1/length(vars)*out_count] 
         #         else                  bs        = rnorm(1,0,par[name.sd.B]) # discuss with Carlo case where we have no L1
         
-        bs        = rnorm(1,0,par[name.sd.B])
+        bs        <- rnorm(1,0,par[name.sd.B])
         
         
         if (sum(ppt)>0) {
@@ -496,13 +482,15 @@ sysanal.predict.bias.OU.JA <- function( parsamp.L1,model,L1,y.obs, #CMP
         { 
           #       slow_proc_var   = sigma_b2 + (fsigma_b2 -sigma_b2-(ppt[n1+i]*ks.B)^2)*exp.2dec + 1*(ppt[n1+i]*ks.B)^2 # independent variance
           
-          slow_jump_var   = (sigma_b2+ (ppt_t[n1/length(vars)+i]*ks.B)^2)*(1-exp.2dec) # unconditional on previous variance
+          slow_jump_var   <- (sigma_b2+ (ppt_t[n1/length(vars)+i]*ks.B)^2)*(1-exp.2dec) # unconditional on previous variance
           
-          Bs.L2.samp[j,(i+((n2/length(vars))*(out_count-1)))] = rnorm(1,bs*exp.dec,sqrt(slow_jump_var)) 
+          Bs.L2.samp[j,(i+((n2/length(vars))*(out_count-1)))] <- rnorm( 1, bs*exp.dec, sqrt(slow_jump_var) ) 
           
-          E.L2.samp = rnorm(1,0,sd.Eps)
+          E.L2.samp <- rnorm(1,0,sd.Eps)
           
-          Y.L2.samp[j,(i+((n2/length(vars))*(out_count-1)))]  = y.L2.samp[j,(i+((n2/length(vars))*(out_count-1)))] + Bs.L2.samp[j,(i+((n2/length(vars))*(out_count-1)))] + E.L2.samp # realizations/points in the path
+          Y.L2.samp[j,(i+((n2/length(vars))*(out_count-1)))]  <- y.L2.samp[j,(i+((n2/length(vars))*(out_count-1)))] +    # realizations/points in the path
+                                                                 Bs.L2.samp[j,(i+((n2/length(vars))*(out_count-1)))] + 
+                                                                 E.L2.samp  
           
           #       fsigma_b2       = slow_proc_var
           
@@ -519,7 +507,7 @@ sysanal.predict.bias.OU.JA <- function( parsamp.L1,model,L1,y.obs, #CMP
     
   }   
   
-  # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+  
   
   # derive quantiles:
   
@@ -532,27 +520,27 @@ sysanal.predict.bias.OU.JA <- function( parsamp.L1,model,L1,y.obs, #CMP
   #   Bf.L1.quant <- y.L1.quant
   Y.L1.quant  <- y.L1.quant
   
-  if ( n1 >0)
-    
-  { for ( i in 1:n1 )  # for all time points in inference period and (we have distributions given by different paths)
-  {
-    #     B.L1.quant[,i]      <- quantile(B.L1.samp[,i],probs=probs,na.rm=TRUE) # modif!!
-    y.L1.quant[,i]         <- quantile(y.L1.samp[,i],probs=probs,na.rm=TRUE)
-    Btot.L1.quant[,i]      <- quantile(Bs.L1.samp[,i],probs=probs,na.rm=TRUE) 
-    #     Bs.L1.quant[,i]        <- quantile(Bs.L1.samp[,i],probs=probs,na.rm=TRUE)
-    #     Bf.L1.quant[,i]        <- quantile(Bf.L1.samp[,i],probs=probs,na.rm=TRUE)
-    yplusBtot.L1.quant[,i] <- quantile(y.L1.samp[,i]+Bs.L1.samp[,i],probs=probs,na.rm=TRUE) # modif!!
-    Y.L1.quant[,i]         <- quantile(Y.L1.samp[,i],probs=probs,na.rm=TRUE)
+  if ( n1 >0) { 
+    for ( i in 1:n1 ) {  # for all time points in inference period and (we have distributions given by different paths)
+      
+      #     B.L1.quant[,i]      <- quantile(B.L1.samp[,i],probs=probs,na.rm=TRUE) # modif!!
+      y.L1.quant[,i]         <- quantile(y.L1.samp[,i],probs=probs,na.rm=TRUE)
+      Btot.L1.quant[,i]      <- quantile(Bs.L1.samp[,i],probs=probs,na.rm=TRUE) 
+      #     Bs.L1.quant[,i]        <- quantile(Bs.L1.samp[,i],probs=probs,na.rm=TRUE)
+      #     Bf.L1.quant[,i]        <- quantile(Bf.L1.samp[,i],probs=probs,na.rm=TRUE)
+      yplusBtot.L1.quant[,i] <- quantile(y.L1.samp[,i]+Bs.L1.samp[,i],probs=probs,na.rm=TRUE) # modif!!
+      Y.L1.quant[,i]         <- quantile(Y.L1.samp[,i],probs=probs,na.rm=TRUE)
+    }
   }
-  }
+  
+  
   y.L2.quant  <- NA
   Btot.L2.quant <- NA
   yplusBtot.L2.quant <- NA
   Y.L2.quant  <- NA
   bias.slow.var <- NA
   
-  if ( n2 > 0 )
-  {
+  if ( n2 > 0 ) {
     y.L2.quant <- matrix(nrow=length(probs),ncol=n2)
     colnames(y.L2.quant) <- L2
     rownames(y.L2.quant) <- probs
@@ -562,8 +550,7 @@ sysanal.predict.bias.OU.JA <- function( parsamp.L1,model,L1,y.obs, #CMP
     yplusBtot.L2.quant <- y.L2.quant
     Y.L2.quant <- y.L2.quant
     
-    for ( i in 1:n2 )
-    {
+    for ( i in 1:n2 ) {
       y.L2.quant[,i]         <- quantile(y.L2.samp[,i],probs=probs,na.rm=TRUE)
       Btot.L2.quant[,i]      <- quantile(Bs.L2.samp[,i],probs=probs,na.rm=TRUE)
       #       Bs.L2.quant[,i]        <- quantile(Bs.L2.samp[,i],probs=probs,na.rm=TRUE)
@@ -572,6 +559,8 @@ sysanal.predict.bias.OU.JA <- function( parsamp.L1,model,L1,y.obs, #CMP
       Y.L2.quant[,i]         <- quantile(Y.L2.samp[,i],probs=probs,na.rm=TRUE)
     }
   }
+  
+  
   
   return(list(y.L1.samp       = y.L1.samp,
               Y.L1.samp       = Y.L1.samp,

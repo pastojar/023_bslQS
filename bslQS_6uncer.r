@@ -8,6 +8,25 @@ devtools::load_all(".")
 
 
 #######################################
+## Defines observed data and their layout for the calibration and prediction
+Urquell <- system.file("swmm", "inpfile.inp", package = package) # path to the swmm catchment model
+
+dataCa <- setupSWMMX( eventIDs = eventIDsCa, flow.data.proc = match_with_IDs(rainfall_datfr = flow.data.proc, IDs = eventIDsCa), 
+                      Urquell = Urquell, package = package )
+for ( i_dataCa in 1:length(dataCa) ) {
+  dataCa[[i_dataCa]]$Q_Data[,2] <- imputeTS::na_interpolation( x = dataCa[[i_dataCa]]$Q_Data[,2], option = "linear", maxgap = 4  )
+  dataCa[[i_dataCa]]$Q_Data[,3] <- imputeTS::na_interpolation( x = dataCa[[i_dataCa]]$Q_Data[,3], option = "linear", maxgap = 4  )
+}
+
+dataPre <- setupSWMMX( eventIDs = eventIDsPre, flow.data.proc = match_with_IDs(rainfall_datfr = flow.data.proc, IDs = eventIDsPre), 
+                       Urquell = Urquell, package = package )
+for ( i_dataPre in 1:length(dataPre) ) {
+  dataPre[[i_dataPre]]$Q_Data[,2] <- imputeTS::na_interpolation( x = dataPre[[i_dataPre]]$Q_Data[,2], option = "linear", maxgap = 5  )
+  dataPre[[i_dataPre]]$Q_Data[,3] <- imputeTS::na_interpolation( x = dataPre[[i_dataPre]]$Q_Data[,3], option = "linear", maxgap = 5  )
+}
+
+
+#######################################
 ## creates the desired rainfall data
 CML_bsl <- sup.rain.data( scens = "read CML14_bslQuantSm", periods = periods )
 
@@ -52,19 +71,22 @@ pseudoHydro_build <- function( myRuno ) {
 
 pseudoHydro <- pseudoHydro_build( myRuno = myRuno )
 
-save( pseudoHydro, file = paste0(getwd(), "/outputs/", package, "_6uncer.Rdata") )
 
-
-#######################################
-## loading the local data
+#-------
+save.image( file = paste0(getwd(), "/outputs/", package, "_6uncer.Rdata") )
+#-------
 load( paste0( getwd(), "/outputs/bsl.QS_1cal.Rdata" ) )
 load( paste0( getwd(), "/outputs/bsl.QS_2rr.Rdata" ) )
 load( paste0( getwd(), "/outputs/bsl.QS_6uncer.Rdata" ) )
 devtools::load_all(".")
+#-------
 
+
+############################################################################## 
+## PREPARES THE CALIBRATION
 
 #######################################
-## Defines initial  error model parameters
+## Defines the parameters and their initial values
 par.init.untr  <- c( sd.Eps_Q = 2,    # units of Q data, i.e. [l/s]
                      sd.B_Q   = 0.001,  # units of Q data, i.e. [l/s]
                      corrlen  = 0.5 )   # [h]; same units as layout
@@ -76,7 +98,7 @@ par.fix <- NA
 lim.sx.ks_Q <- NA
 
 #######################################
-## Defines prior parameter distribution
+## Defines prior parameter distributions
 pri.sd.untr    <- c( sd.Eps_Q = 2,              # units of Q data, i.e. [l/s]
                      sd.B_Q   = 25,                                           # units of Q data, i.e. [l/s]
                      corrlen  = 0.25  )            # [h]; same units as layout
@@ -93,7 +115,7 @@ prior.pbdis <- list(
 
 
 #######################################
-## Sets up transformation method of the output (i.e. Q)
+## Sets up the output (i.e. Q) transformation method
 transf  <- list( transf = "BC", # Box-Cox transformation
                  par.tr = c(l1 = 0.45, l2 = 1) )  # two different parameters of the Box-Cox transformation
 par.tr  <- transf$par.tr
@@ -137,15 +159,6 @@ up_ran   <- as.numeric( unlist(prior.pbdis)[c(F,F,F,F,T)] )
 names(par.init) <- names(pri.sd) <- names(low_ran) <- names(up_ran) <- names( prior.pbdis )
 
 
-#######################################
-## Defines calibration data
-Urquell <- system.file("swmm", "inpfile.inp", package = package) # path to the swmm catchment model
-dataCa <- setupSWMMX( eventIDs = eventIDsCa, flow.data.proc = match_with_IDs(rainfall_datfr = flow.data.proc, IDs = eventIDsCa), 
-                      Urquell = Urquell, package = package )
-for ( i_dataCa in 1:length(dataCa) ) {
-  dataCa[[i_dataCa]]$Q_Data[,2] <- imputeTS::na_interpolation( x = dataCa[[i_dataCa]]$Q_Data[,2], option = "linear", maxgap = 4  )
-  dataCa[[i_dataCa]]$Q_Data[,3] <- imputeTS::na_interpolation( x = dataCa[[i_dataCa]]$Q_Data[,3], option = "linear", maxgap = 4  )
-}
 
 #######################################
 ## Defines objective function
@@ -214,104 +227,126 @@ RAM      <- adaptMCMC::MCMC( p        = logposterior.unlim.swmm,
                              n.start  = 100  # maybe larger
 )
 
-save.image( file = paste0(getwd(), "/outputs/", package, "_6uncer.Rdata") )
-
-
-#######################################
-## loading the local data
-load( paste0( getwd(), "/outputs/bsl.QS_1cal.Rdata" ) )
-load( paste0( getwd(), "/outputs/bsl.QS_2rr.Rdata" ) )
-load( paste0( getwd(), "/outputs/bsl.QS_6uncer.Rdata" ) )
-devtools::load_all(".")
-
-
-##############################################################################
-## Predictions with uncertainty propagation
-if ( runs[4] < runs[3] ) {
-  MCMC.propa <- RAM$samples[ sample( seq((nrow(RAM$samples) - runs[3] + 1), nrow(RAM$samples), by=1), runs[4] ) , ]
-} 
-if ( runs[4] == runs[3] ) {
-  MCMC.propa <- RAM$samples[ seq((nrow(RAM$samples) - runs[3] + 1), nrow(RAM$samples), 1) , ]
-}
-
-#######################################
-# Calibration Phase (Ca events)
-res.swmm.LCa <- list()
-for (i in 1 : length(dataCa)) {
-  res.swmm.LCa[[i]] <- CaPre.predict.Ca( evdata = dataCa[i], model = pseudoHydro,
-                                         MCMC.propa = MCMC.propa, par.tr = par.tr, par.fix = par.fix )
-}
-
-#######################################
-## Defines Prediction data
-Urquell <- system.file("swmm", "inpfile.inp", package = package) # path to the swmm catchment model
-dataPre <- setupSWMMX( eventIDs = eventIDsPre, flow.data.proc = match_with_IDs(rainfall_datfr = flow.data.proc, IDs = eventIDsPre), 
-                       Urquell = Urquell, package = package )
-for ( i_dataPre in 1:length(dataPre) ) {
-  dataPre[[i_dataPre]]$Q_Data[,2] <- imputeTS::na_interpolation( x = dataPre[[i_dataPre]]$Q_Data[,2], option = "linear", maxgap = 5  )
-  dataPre[[i_dataPre]]$Q_Data[,3] <- imputeTS::na_interpolation( x = dataPre[[i_dataPre]]$Q_Data[,3], option = "linear", maxgap = 5  )
-}
-
-save.image( file = paste0(getwd(), "/outputs/", package, "_6uncer.Rdata") )
-
-
-#######################################
-## loading the local data
-load( paste0( getwd(), "/outputs/bsl.QS_1cal.Rdata" ) )
-load( paste0( getwd(), "/outputs/bsl.QS_2rr.Rdata" ) )
-load( paste0( getwd(), "/outputs/bsl.QS_6uncer.Rdata" ) )
-devtools::load_all(".")
-
-
-#######################################
-# Validation Phase (Pre events)
-res.swmm.LPre <- list()
-for (i in 1 : length(dataPre)) {
-  res.swmm.LPre[[i]] <- CaPre.predict.Pre( evdata = dataPre[i],  model = pseudoHydro,
-                                           MCMC.propa = MCMC.propa, par.tr = par.tr, par.fix = par.fix )
-}
-
-
-#########################################################
-## Back Transform
-
-#  Ca events
-bTr.Ca <- list()
-for (i in 1 : length(dataCa)) {
-  bTr.Ca[[i]] <- CaPre.bTr.Ca(transf = transf, res.swmm.LCa = res.swmm.LCa[[i]], L.Ca = dataCa[[i]][[1]])
-}
-
-#  Pre events
-bTr.Pre <- list()
-for (i in 1 : length(dataPre)) {
-  bTr.Pre[[i]] <- CaPre.bTr.Pre(transf = transf, res.swmm.LPre = res.swmm.LPre[[i]], L.Pre = dataPre[[i]][[1]])
-} 
-
-Pre.res = list( MCMC.propa = MCMC.propa, bTr.Ca = bTr.Ca, bTr.Pre = bTr.Pre)
-
-#########################################################
-## statistics of the inference results
-statistics <- list()
-for (i in 1 : length(subsets)) {
-  # statistics[[ names(subsets)[[i]] ]] <- statist.CaPre.res(Pre.res = Pre.res, prodata = prodata, skip = setdiff(1:11, subsets[[i]]) )
-  statistics[[ "all" ]] <- statist.CaPre.res( Pre.res, dataPre = dataPre, 
-                                              skip = as.numeric(c()) )
-} 
-lol <- list(Pre.res = Pre.res, statistics = statistics, transf = transf) # a list for plotting
-
 
 #######################################           
-## plots prediction results
+## plots calibration chains, marginal priors and posteriors
 out_dir <- file.path( getwd(), "outputs", "uncer" )
 if ( dir.exists( out_dir) == F ) {
   dir.create(out_dir)  
 }
 
-to.plot.list   <- list(lol = lol, lo1 = lol, lo2 = lol)
 check <- FALSE
-check <- plot.Pre.res(prodata = prodata, to.plot.list = to.plot.list, Ca.res = Ca.res,
-                      pack.dir = out_dir)
-if (check==FALSE) {dev.off()} # closes graphic device if plotting fails
+check <- plot.chains.margs( RAM = RAM, pr.dis = prior.pbdis, pack.dir = out_dir, 
+                            which_samples = 1:runs[2], plot_name = "2_Adapt" )
+if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
+
+check <- FALSE
+check <- plot.chains.margs( RAM = RAM, pr.dis = prior.pbdis, pack.dir = out_dir, 
+                            which_samples = (runs[2]+1) : (runs[2]+runs[3]), plot_name = "3_Non-Adapt" )
+if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
+
+
+#-------
+save.image( file = paste0(getwd(), "/outputs/", package, "_6uncer.Rdata") )
+#-------
+load( paste0( getwd(), "/outputs/bsl.QS_1cal.Rdata" ) )
+load( paste0( getwd(), "/outputs/bsl.QS_2rr.Rdata" ) )
+load( paste0( getwd(), "/outputs/bsl.QS_6uncer.Rdata" ) )
+devtools::load_all(".")
+#-------
+
+
+
+##############################################################################
+## Predictions with uncertainty propagation
+
+#######################################
+# Reuses parameter samples from the last phase of the calibration
+if ( runs[4] <= runs[3]  ) {
+  set.seed(seed)
+  par_samples_Pre_ord <- sample( x = (nrow(RAM$samples)-runs[4]+1) : nrow(RAM$samples), size = runs[4], replace = F )
+} else { stop("Wrong numbers of iterations")  }
+par_samples_Pre <- RAM$samples[ par_samples_Pre_ord , ]
+
+
+#######################################           
+## plots prediction chains, marginal priors and posteriors
+check <- FALSE
+check <- plot.chains.margs( RAM = RAM, pr.dis = prior.pbdis, pack.dir = out_dir, 
+                            which_samples = par_samples_Pre_ord , plot_name = "4_Predict" )
+if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
+
+
+#######################################
+# Prediction and back-transformation for the calibration phase (Ca events) and validation phase (Pre events)
+res.LCa <- list()
+for (i in 1 : length(dataCa)) {
+  res.LCa[[i]] <- CaPre.predict.Ca( evdata = dataCa[i], model = pseudoHydro,
+                                    par_samples_Pre = par_samples_Pre, par.tr = par.tr, par.fix = par.fix )
+}
+bTr.Ca <- list()
+for (i in 1 : length(dataCa)) {
+  bTr.Ca[[i]] <- CaPre.bTr.Ca(transf = transf, res.LCa = res.LCa[[i]] )
+}
+
+res.LPre <- list()
+for (i in 1 : length(dataPre)) {
+  res.LPre[[i]] <- CaPre.predict.Pre( evdata = dataPre[i],  model = pseudoHydro,
+                                      par_samples_Pre = par_samples_Pre, par.tr = par.tr, par.fix = par.fix )
+}
+bTr.Pre <- list()
+for (i in 1 : length(dataPre)) {
+  bTr.Pre[[i]] <- CaPre.bTr.Pre(transf = transf, res.LPre = res.LPre[[i]] )
+} 
+
+
+
+#-------
+save.image( file = paste0(getwd(), "/outputs/", package, "_6uncer.Rdata") )
+#-------
+load( paste0( getwd(), "/outputs/bsl.QS_1cal.Rdata" ) )
+load( paste0( getwd(), "/outputs/bsl.QS_2rr.Rdata" ) )
+load( paste0( getwd(), "/outputs/bsl.QS_6uncer.Rdata" ) )
+devtools::load_all(".")
+#-------
+
+
+
+
+#########################################################
+## plots hydrographs for Ca events and Pre events
+pdf( paste(out_dir, "/5_hydrographs_Ca.pdf", sep="") , height = 6,  width = 7 , fonts = "Times")
+for ( i in 1 : length(dataPre) ) { 
+  CaPre.plot.new( data_obs = dataCa[[i]], data_mod = bTr.Ca[[i]], eventSet = "Ca" )  
+}
+dev.off()
+
+pdf( paste(out_dir, "/5_hydrographs_Pre.pdf", sep="") , height = 6,  width = 7 , fonts = "Times")
+for ( i in 1 : length(dataPre) ) { 
+  CaPre.plot.new( data_obs = dataPre[[i]], data_mod = bTr.Pre[[i]], eventSet = "Pre" )  
+}
+dev.off()
+
+
+
+#########################################################
+## statistics of the predicted model outputs
+statistics_Ca  <- statist.CaPre.res( data_mod = bTr.Ca,  data_obs = dataCa, 
+                                     skip = as.numeric(c()) )
+statistics_Pre <- statist.CaPre.res( data_mod = bTr.Pre, data_obs = dataPre, 
+                                     skip = as.numeric(c()) )
+ 
+
+
+
+#######################################           
+## plots the predicted model outputs
+check <- FALSE
+check <- plot.Pre.res( dataCa = dataCa, dataPre = dataPre, 
+                       transf = transf, bTr.Ca = bTr.Ca, bTr.Pre = bTr.Pre,
+                       statistics = statistics_Pre,
+                       pack.dir = out_dir )
+if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
 
 
 

@@ -46,40 +46,42 @@ group.run.plot <- function(dir, name, par, ev.data) {
 
 #---------------------------------------------------------------------
 
-plot.Ca.res <- function(Ca.res, pack.dir) {
+plot.chains.margs <- function(RAM, pr.dis, which_samples, pack.dir, plot_name) {
   
-  pdf( paste(pack.dir, "/2_MCMC.Adapt_chains+margs.pdf", sep="") )
-  RAMtoplot1 <- Ca.res$RAM
-  RAMtoplot1$samples <- cbind(Ca.res$RAM$samples[(1:runs[2]),], log.post=Ca.res$RAM$log.p[(1:runs[2])])
-  RAMtoplot1 <- adaptMCMC::convert.to.coda(RAMtoplot1)
-  plot(RAMtoplot1)
+  RAM_to_plot <- RAM
+  RAM_to_plot$samples <- cbind(RAM$samples[ which_samples , ], log.post = RAM_to_plot$log.p[ which_samples ])
+  RAM_to_plot <- adaptMCMC::convert.to.coda(RAM_to_plot)
+
+  pdf( paste0(pack.dir, "/", plot_name, "_chains+margs.pdf") )
+  plot(RAM_to_plot)
   dev.off()
   
-  pdf( paste(pack.dir, "/2_MCMC.Adapt_cumuplot.pdf", sep="") )
-  coda::cumuplot(RAMtoplot1)
+  pdf( paste0(pack.dir, "/", plot_name, "_chains.pdf") )
+  coda::cumuplot(RAM_to_plot)
   dev.off()
   
-  pdf( paste(pack.dir, "/3_MCMC.nonAdapt_chains+margs.pdf", sep="") )
-  RAMtoplot2 <- Ca.res$RAM
-  RAMtoplot2$samples <- cbind(Ca.res$RAM$samples[-(1:runs[2]),], log.post=Ca.res$RAM$log.p[-(1:runs[2])])
-  RAMtoplot2 <- adaptMCMC::convert.to.coda(RAMtoplot2)
-  plot(RAMtoplot2)
+  pdf( paste0(pack.dir, "/", plot_name, "_margs+prior.pdf") )
+  sysanal.plot.margs.JA(postsamp=RAM_to_plot, pridist=pr.dis)
   dev.off()
   
-  pdf( paste(pack.dir, "/3_MCMC.nonAdapt_margs+prior.pdf", sep="") )
-  sysanal.plot.margs.JA(postsamp=RAMtoplot2, pridist=Ca.res$pr.dis)
-  dev.off()
-  
-  pdf( paste(pack.dir, "/3_MCMC.nonAdapt_cumuplot.pdf", sep="") )
-  coda::cumuplot(RAMtoplot2)
-  dev.off()
+  # pdf( paste(pack.dir, "/3_MCMC.nonAdapt_chains+margs.pdf", sep="") )
+  # plot(RAM_nonAdapt)
+  # dev.off()
+  # 
+  # pdf( paste(pack.dir, "/3_MCMC.nonAdapt_chains.pdf", sep="") )
+  # coda::cumuplot(RAM_nonAdapt)
+  # dev.off()
+  #   
+  # pdf( paste(pack.dir, "/3_MCMC.nonAdapt_margs+prior.pdf", sep="") )
+  # sysanal.plot.margs.JA(postsamp=RAM_nonAdapt, pridist=pr.dis)
+  # dev.off()
   
   return(TRUE)
 }
 
 #---------------------------------------------------------------------
 
-CaPre.predict.Ca <- function(evdata, model, MCMC.propa, par.tr, par.fix) {
+CaPre.predict.Ca <- function(evdata, model, par_samples_Pre, par.tr, par.fix) {
   
   eventID <- names(evdata)
   
@@ -90,7 +92,7 @@ CaPre.predict.Ca <- function(evdata, model, MCMC.propa, par.tr, par.fix) {
   input    <- evdata[[3]]
   
   ret <- sysanal.predict.bias.OU.JA (
-    parsamp.L1        = MCMC.propa,
+    parsamp.L1        = par_samples_Pre,
     model             = model,
     eventID           = eventID,
     #inp.file          = input,
@@ -113,7 +115,7 @@ CaPre.predict.Ca <- function(evdata, model, MCMC.propa, par.tr, par.fix) {
 
 #---------------------------------------------------------------------
 
-CaPre.predict.Pre <- function(evdata, model, MCMC.propa, par.tr, par.fix) {
+CaPre.predict.Pre <- function(evdata, model, par_samples_Pre, par.tr, par.fix) {
   
   eventID <- names(evdata)
   
@@ -124,7 +126,7 @@ CaPre.predict.Pre <- function(evdata, model, MCMC.propa, par.tr, par.fix) {
   input    <- evdata[[3]]
   
   ret <- sysanal.predict.bias.OU.JA (
-    parsamp.L1        = MCMC.propa,
+    parsamp.L1        = par_samples_Pre,
     model             = model,
     eventID           = eventID,
     #inp.file          = input,
@@ -145,7 +147,7 @@ CaPre.predict.Pre <- function(evdata, model, MCMC.propa, par.tr, par.fix) {
 
 #---------------------------------------------------------------------
 
-CaPre.bTr.Pre <- function(transf, res.swmm.LPre, L.Pre) {
+CaPre.bTr.Pre <- function(transf, res.LPre) {
   par.tr <- transf$par.tr
   
   if (transf$transf == "LogSinh") {
@@ -159,16 +161,16 @@ CaPre.bTr.Pre <- function(transf, res.swmm.LPre, L.Pre) {
   }
   
   ret <- list(
-    bct.Y.L2.samp.Pre      = inv.fcia(res.swmm.LPre$Y.L2.samp, Par.tr[1], Par.tr[2]),
+    bct.Y.L2.samp.Pre      = inv.fcia(res.LPre$Y.L2.samp, Par.tr[1], Par.tr[2]),
     
-    bct.y.L1.quant.Pre     = inv.fcia(res.swmm.LPre$y.L1.quant, Par.tr[1], Par.tr[2]),
-    bct.y.L2.quant.Pre     = inv.fcia(res.swmm.LPre$y.L2.quant, Par.tr[1], Par.tr[2]),
-    bct.yplusB.L1.quant.Pre= inv.fcia(res.swmm.LPre$yplusB.L1.quant, Par.tr[1], Par.tr[2]),
-    bct.yplusB.L2.quant.Pre= inv.fcia(res.swmm.LPre$yplusB.L2.quant, Par.tr[1], Par.tr[2]),
-    bct.Y.L1.quant.Pre     = inv.fcia(res.swmm.LPre$Y.L1.quant, Par.tr[1], Par.tr[2]),
-    bct.Y.L2.quant.Pre     = inv.fcia(res.swmm.LPre$Y.L2.quant, Par.tr[1], Par.tr[2]),
+    bct.y.L1.quant.Pre     = inv.fcia(res.LPre$y.L1.quant, Par.tr[1], Par.tr[2]),
+    bct.y.L2.quant.Pre     = inv.fcia(res.LPre$y.L2.quant, Par.tr[1], Par.tr[2]),
+    bct.yplusB.L1.quant.Pre= inv.fcia(res.LPre$yplusB.L1.quant, Par.tr[1], Par.tr[2]),
+    bct.yplusB.L2.quant.Pre= inv.fcia(res.LPre$yplusB.L2.quant, Par.tr[1], Par.tr[2]),
+    bct.Y.L1.quant.Pre     = inv.fcia(res.LPre$Y.L1.quant, Par.tr[1], Par.tr[2]),
+    bct.Y.L2.quant.Pre     = inv.fcia(res.LPre$Y.L2.quant, Par.tr[1], Par.tr[2]),
     
-    timestepPre = sysanal.decode(L.Pre)[,2]
+    timestepPre = sysanal.decode( colnames(res.LPre[[4]]) )[,2]
   )
   
   return(ret)
@@ -179,7 +181,7 @@ CaPre.bTr.Pre <- function(transf, res.swmm.LPre, L.Pre) {
 #---------------------------------------------------------------------
 
 
-CaPre.bTr.Ca <- function(transf, res.swmm.LCa, L.Ca) {
+CaPre.bTr.Ca <- function(transf, res.LCa ) {
   par.tr <- transf$par.tr
   
   if (transf$transf == "LogSinh") {
@@ -193,14 +195,14 @@ CaPre.bTr.Ca <- function(transf, res.swmm.LCa, L.Ca) {
   }
   
   ret <- list(
-    bct.y.L1.quant.Ca     = inv.fcia(res.swmm.LCa$y.L1.quant, Par.tr[1], Par.tr[2]),
-    bct.y.L2.quant.Ca     = inv.fcia(res.swmm.LCa$y.L2.quant, Par.tr[1], Par.tr[2]),
-    bct.yplusB.L1.quant.Ca= inv.fcia(res.swmm.LCa$yplusB.L1.quant, Par.tr[1], Par.tr[2]),
-    bct.yplusB.L2.quant.Ca= inv.fcia(res.swmm.LCa$yplusB.L2.quant, Par.tr[1], Par.tr[2]),
-    bct.Y.L1.quant.Ca     = inv.fcia(res.swmm.LCa$Y.L1.quant, Par.tr[1], Par.tr[2]),
-    bct.Y.L2.quant.Ca     = inv.fcia(res.swmm.LCa$Y.L2.quant, Par.tr[1], Par.tr[2]),
+    bct.y.L1.quant.Ca     = inv.fcia(res.LCa$y.L1.quant, Par.tr[1], Par.tr[2]),
+    bct.y.L2.quant.Ca     = inv.fcia(res.LCa$y.L2.quant, Par.tr[1], Par.tr[2]),
+    bct.yplusB.L1.quant.Ca= inv.fcia(res.LCa$yplusB.L1.quant, Par.tr[1], Par.tr[2]),
+    bct.yplusB.L2.quant.Ca= inv.fcia(res.LCa$yplusB.L2.quant, Par.tr[1], Par.tr[2]),
+    bct.Y.L1.quant.Ca     = inv.fcia(res.LCa$Y.L1.quant, Par.tr[1], Par.tr[2]),
+    bct.Y.L2.quant.Ca     = inv.fcia(res.LCa$Y.L2.quant, Par.tr[1], Par.tr[2]),
     
-    timestepCa=sysanal.decode(L.Ca)[,2]
+    timestepCa = sysanal.decode( colnames(res.LCa[[1]]) )[,2]
   )
   
   return(ret)
@@ -209,7 +211,9 @@ CaPre.bTr.Ca <- function(transf, res.swmm.LCa, L.Ca) {
 
 #---------------------------------------------------------------------
 
-CaPre.VerInd.Pre <- function(out.data.Pre, bct.Y.L2.quant.Pre) {
+CaPre.VerInd.Pre <- function(data_obs, data_mod) {
+  out.data.Pre <- data_obs
+  bct.Y.L2.quant.Pre <-  data_mod
   
   #o=out.data.Pre[2:nrow(out.data.Pre),2] # WHYYYYY to leave out the first one???
   o=out.data.Pre[1:nrow(out.data.Pre),2]
@@ -251,18 +255,18 @@ CaPre.VerInd.Pre <- function(out.data.Pre, bct.Y.L2.quant.Pre) {
 
 
 # calculates statistics for prediction events
-statist.CaPre.res <- function(Pre.res, dataPre, skip) {   # skip - number of event ignored when calculating overall stats (ret.all)
+statist.CaPre.res <- function(data_mod, data_obs, skip) {   # skip - number of event ignored when calculating overall stats (ret.all)
   
   # Verification Indicies (ABW, reliab, MIS, red points)
   VerInd.statistics <- c("ABW", "relABW", "reliab", "MIS", "relMIS", "n.timesteps", "n.red.points")
-  VerInd <- list();  VerInd.stat <-  data.frame(matrix(NA, ncol=length(VerInd.statistics), nrow=length(dataPre)))
+  VerInd <- list();  VerInd.stat <-  data.frame(matrix(NA, ncol=length(VerInd.statistics), nrow=length(data_obs)))
   names(VerInd.stat) <- VerInd.statistics
-  for (i in 1 : length(Pre.res$bTr.Pre)) {
-    hlp <- CaPre.VerInd.Pre(out.data.Pre = dataPre[[i]][[2]], bct.Y.L2.quant.Pre = Pre.res$bTr.Pre[[i]]$bct.Y.L2.quant.Pre)
+  for (i in 1 : length(data_mod)) {
+    hlp <- CaPre.VerInd.Pre(out.data.Pre = data_obs[[i]][[2]], bct.Y.L2.quant.Pre = data_mod[[i]]$bct.Y.L2.quant.Pre)
     VerInd.stat[i,] <- as.numeric( c(hlp$ABW, hlp$relABW, hlp$reliab, hlp$MIS, hlp$relMIS, 
                                    length(hlp$red.points), length(which(is.na(hlp$red.points) == TRUE)) )
                                   )  
-    VerInd[[i]] <- data.frame(matrix(NA, ncol=length(hlp$QuSc), nrow=2)); names(VerInd[[i]]) <- dataPre[[i]][[1]]
+    VerInd[[i]] <- data.frame(matrix(NA, ncol=length(hlp$QuSc), nrow=2)); names(VerInd[[i]]) <- data_obs[[i]][[1]]
     VerInd[[i]][1,] <- hlp$QuSc; VerInd[[i]][2,] <- hlp$red.points
   }
   
@@ -286,15 +290,15 @@ statist.CaPre.res <- function(Pre.res, dataPre, skip) {   # skip - number of eve
                   
                   paste( "E(NSE)", sep=""),  paste( "sd(NSE)", sep="") )
   
-  ret <- data.frame(matrix(NA, ncol=length(my.stats), nrow=length(dataPre)))
+  ret <- data.frame(matrix(NA, ncol=length(my.stats), nrow=length(data_obs)))
   names(ret) <- my.stats
   
-  for (i in 1 : length(dataPre)) {
-    id <- substr( dataPre[[i]][[3]], nchar(dataPre[[i]][[3]])-22, nchar(dataPre[[i]][[3]])-4 ) # event id (starting time)
+  for (i in 1 : length(data_obs)) {
+    id <- substr( data_obs[[i]][[3]], nchar(data_obs[[i]][[3]])-22, nchar(data_obs[[i]][[3]])-4 ) # event id (starting time)
     
-    bct <- Pre.res$bTr.Pre[[i]]
-    timestep <- Pre.res$bTr.Pre[[i]]$timestepPre
-    obs <- dataPre[[i]][[2]][,2]
+    bct <- data_mod[[i]]
+    timestep <- data_mod[[i]]$timestepPre
+    obs <- data_obs[[i]][[2]][,2]
     Vobs      <- Vtot (Qdata = obs, timestep = timestep)
     Vpeak.obs <- Vpeak(Qdata = obs, timestep = timestep)
     
@@ -302,7 +306,7 @@ statist.CaPre.res <- function(Pre.res, dataPre, skip) {   # skip - number of eve
     if (i==1) {
       my.stats.event <- c("NS(Y)", "V(Y)", "Vpeak(Y)", "shift(Qmax(Y))", 
                           paste(intToUtf8(0x03B4), "V(Y)", sep=""), paste(intToUtf8(0x03B4), "Vpeak(Y)", sep="") )
-      event.table.all <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct$bct.Y.L2.samp.Pre[,1])*length(dataPre) ))
+      event.table.all <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct$bct.Y.L2.samp.Pre[,1])*length(data_obs) ))
       names(event.table.all) <- my.stats.event
     }
     event.table <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct$bct.Y.L2.samp.Pre[,1])))
@@ -410,94 +414,65 @@ statist.CaPre.res <- function(Pre.res, dataPre, skip) {   # skip - number of eve
   return(list(bind.ret = bind.ret, VerInd=VerInd, ret.all=ret.all, boxplot.data=boxplot.data, all.iterations=all.iterations))
 }
 
+
 #---------------------------------------------------------------------
 
-plot.Pre.res <- function(pack.dir, prodata, to.plot.list, Ca.res) {
+CaPre.plot.new <- function( data_obs, data_mod, eventSet ) {
   
-  for (j in 1 : length(to.plot.list)) {
-    MCMC.propa <- to.plot.list[[j]]$Pre.res$MCMC.propa
-    
-    pdf( paste(pack.dir, "/4_predict_chains+margs_", names(to.plot.list)[j], ".pdf", sep="") )
-      RAMtoplot3 <- RAM
-      RAMtoplot3$samples <- MCMC.propa
-      RAMtoplot3 <- adaptMCMC::convert.to.coda(RAMtoplot3)
-      plot(RAMtoplot3)
-    dev.off()
-    
-    pdf( paste(pack.dir, "/4_predict_cumuplot_", names(to.plot.list)[j], ".pdf", sep="") )
-      coda::cumuplot(RAMtoplot3)
-    dev.off()
-  }
+  out.data_obs <- data_obs[[2]]
   
-  # prepares data for hydrographs 
-  hydro.list <- list()
-  for (j in 1 : length(to.plot.list)) {
-    hydrographsCa  <- list()
-    hydrographsPre <- list()
-    
-    Pre.res    <- to.plot.list[[j]]$Pre.res
-    statistics <- to.plot.list[[j]]$statistics[[1]] 
-    transf     <- to.plot.list[[j]]$transf
-      
-    for (i in 1 : length(dataCa)) {
-      hydrographsCa[[i]] <- list( timestepCa = Pre.res$bTr.Ca[[i]]$timestepCa, 
-                                  data.Ca = dataCa[[i]], 
-                                  bct = Pre.res$bTr.Ca[[i]],
-                                  transf = transf,
-                                  data.source = names(to.plot.list)[j]
-                                ) 
-    }
-      
-    for (i in 1 : length(dataPre)) {
-      hydrographsPre[[i]] <- list( timestepPre = Pre.res$bTr.Pre[[i]]$timestepPre, 
-                                   data.Pre = dataPre[[i]], 
-                                   bct = Pre.res$bTr.Pre[[i]],
-                                   bind.ret = statistics$bind.ret[i,],
-                                   VerInd = statistics$VerInd[[i]],
-                                   transf = transf,
-                                   data.source = names(to.plot.list)[j]
-                                 ) 
-    }
-    hydro.list[[j]] <- list(hydrographsCa = hydrographsCa, hydrographsPre = hydrographsPre)
-  }
+  if ( eventSet == "Ca"  ) { L <- "L1" }
+  if ( eventSet == "Pre" ) { L <- "L2" }
+  
+  y.quant   <- data_mod[[ paste0("bct.y.", L, ".quant.", eventSet) ]]
+  y_B.quant <- data_mod[[ paste0("bct.yplusB.", L, ".quant.", eventSet) ]]
+  Y.quant   <- data_mod[[ paste0("bct.Y.", L, ".quant.", eventSet) ]]
+  timestep  <- data_mod[[ paste0("timestep", eventSet) ]]
+  
+  
+  plot( x = timestep, 
+        y = out.data_obs[1:nrow(out.data_obs),2], 
+        bty = "o", xaxt = "n",
+        ylab = "Discharge [l/s]", xlab = "Timestep [h]", 
+        ylim = c( 0 , max( c(Y.quant[(row.names(Y.quant)=="0.95")], out.data_obs[1:nrow(out.data_obs),2] ) ) ) )
 
-  # plots hydrographs
-      # Ca events
-  for (i in 1 : length(hydro.list)) {
-    pdf( paste(pack.dir, "/hydrographs_Ca_", hydro.list[[i]]$hydrographsCa[[1]]$data.source, ".pdf", sep="") )
-      for (ii in 1 : length(hydro.list[[i]]$hydrographsCa)) { 
-        CaPre.plot.Ca(plotdata1 = hydro.list[[i]]$hydrographsCa[[ii]])
-      }
-    dev.off()
-  }
-      # Pre events
-  if (length(hydro.list) == 1) {
-    pdf( paste(pack.dir, "/00 hydrographs_Pre.pdf", sep="") , height = 3.5,  width = 7)
-    for (i in 1 : length(hydro.list[[1]]$hydrographsPre)) { 
-      CaPre.plot.Pre(plotdata1 = hydro.list[[1]]$hydrographsPre[[i]])
-    }
-  }
+  polygon( c( timestep,rev( timestep)),
+           c(Y.quant[(row.names(Y.quant)=="0.05")],
+             rev(Y.quant[(row.names(Y.quant)=="0.95")])), #set the limits (1st and last quantiles)
+           col=gray(0.1), 
+           border=NA )
   
-  if (length(hydro.list) == 2) {
-    pdf( paste(pack.dir, "/00 hydrographs_Pre.pdf", sep="") , height = 3.5,  width = 7)
-    for (i in 1 : length(hydro.list[[1]]$hydrographsPre)) { 
-      CaPre.plot.2.Pre(plotdata1 = hydro.list[[1]]$hydrographsPre[[i]], 
-                       plotdata2 = hydro.list[[2]]$hydrographsPre[[i]] )
-    }
-  }
+  polygon( c( timestep,rev( timestep)),
+           c(y_B.quant[(row.names(y_B.quant)=="0.05")],
+             rev(y_B.quant[(row.names(y_B.quant)=="0.95")])), #set the limits (1st and last quantiles)
+           col=gray(0.5), 
+           border=NA )
   
-  if (length(hydro.list) == 3) {
-    pdf( paste(pack.dir, "/00 hydrographs_Pre.pdf", sep="") , height = 6,  width = 7 , fonts = "Times")
-    # statistics per event
-    for (i in 1 : length(hydro.list[[1]]$hydrographsPre)) { 
-      CaPre.plot.3.Pre(plotdata1 = hydro.list[[1]]$hydrographsPre[[i]], 
-                       plotdata2 = hydro.list[[2]]$hydrographsPre[[i]],
-                       plotdata3 = hydro.list[[3]]$hydrographsPre[[i]] )   
-    }
-  }
-    
-  dev.off()
+  polygon( c( timestep,rev( timestep)),
+           c(y.quant[(row.names(y.quant)=="0.05")],
+             rev(y.quant[(row.names(y.quant)=="0.95")])), #set the limits (1st and last quantiles)
+           # col=gray(0.8),
+           col = "magenta",
+           border=NA )
   
+  lines(x =  timestep, y = Y.quant[(row.names(Y.quant)=="0.5")], lty = "66")
+  
+  points(x =  timestep, y = out.data_obs[1:nrow(out.data_obs),2], col="blue")
+  
+  VerInd <- CaPre.VerInd.Pre( data_obs = data_obs$Q_Data, data_mod = Y.quant )
+  points(x =  timestep, y = VerInd$red.points, col="red")
+
+  
+}
+
+
+#---------------------------------------------------------------------
+
+plot.Pre.res <- function( dataCa, dataPre, 
+                          bTr.Ca, bTr.Pre,
+                          pack.dir, statistics) {
+
+
   
   # prints statistics overview
  
@@ -856,41 +831,6 @@ plot.Pre.res <- function(pack.dir, prodata, to.plot.list, Ca.res) {
   return(TRUE)
 }  
 
-#---------------------------------------------------------------------
-
-CaPre.plot.Ca <- function(plotdata1) {
-  timestepCa  <- plotdata1$timestepCa; data.Ca <- plotdata1$data.Ca; 
-  y_B.quant <- plotdata1$bct$bct.yplusB.L1.quant.Ca; 
-  y.quant <- plotdata1$bct$bct.y.L1.quant.Ca
-  Y.quant <- plotdata1$bct$bct.Y.L1.quant.Ca; Y.samp <- plotdata1$bct$bct.Y.L1.samp.Ca
-  out.data.Ca <- data.Ca[[2]]
-  transf <- plotdata1$transf
-  
-  plot(x = timestepCa, y = out.data.Ca[1:nrow(out.data.Ca),2], ylab = "Discharge [l/s]", xlab = "Timestep [h]", 
-       ylim = c( 0 , max(Y.quant[(row.names(Y.quant)=="0.95")])*1.1 ) 
-  )
-  
-  polygon(c(timestepCa,rev(timestepCa)),
-          c(Y.quant[(row.names(Y.quant)=="0.05")],
-            rev(Y.quant[(row.names(Y.quant)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.1), border=NA)
-  
-  polygon(c(timestepCa,rev(timestepCa)),
-          c(y_B.quant[(row.names(y_B.quant)=="0.05")],
-            rev(y_B.quant[(row.names(y_B.quant)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.5), border=NA)
-  
-  polygon(c(timestepCa,rev(timestepCa)),
-          c(y.quant[(row.names(y.quant)=="0.05")],
-            rev(y.quant[(row.names(y.quant)=="0.95")])),#set the limits (1st and last quantiles)
-          col=gray(.8), border=NA)
-  
-  legend("topleft", legend = paste("90% quantiles for y+B+E (", 
-                                   names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
-                                   names(transf$par.tr[2]),"=", transf$par.tr[2],
-                                   "; Ca event ", substr(data.Ca[[3]], nchar(data.Ca[[3]])-22, nchar(data.Ca[[3]])-4), ")", sep=""))
-  
-}
 
 #---------------------------------------------------------------------
 
