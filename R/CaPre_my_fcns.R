@@ -79,17 +79,15 @@ plot.chains.margs <- function(RAM, pr.dis, which_samples, pack.dir, plot_name) {
   return(TRUE)
 }
 
+
 #---------------------------------------------------------------------
 
-CaPre.predict.Ca <- function(evdata, model, par_samples_Pre, par.tr, par.fix) {
+CaPre.predict <- function(L1, L2, y.obs, inp.file, eventID, model, par_samples_Pre, par.tr, par.fix) {
   
-  eventID <- names(evdata)
+  if (!is.na(L1)) { L <- L1 }
+  if (!is.na(L2)) { L <- L2 }
   
-  evdata <- evdata[[1]]
-  
-  L        <- evdata[[1]]
-  out.data <- evdata[[2]]
-  input    <- evdata[[3]]
+  input    <- inp.file
   
   ret <- sysanal.predict.bias.OU.JA (
     parsamp.L1        = par_samples_Pre,
@@ -99,111 +97,38 @@ CaPre.predict.Ca <- function(evdata, model, par_samples_Pre, par.tr, par.fix) {
     #out.data          = out.data,
     inp               = rep(0,length(L)),
     ppt               = rep(0,length(L)),
-    L1                = L,
+    L1                = L1,
     #y.obs             = out.data[2:nrow(out.data),2], # WHYYYYY to leave out the first one???
-    y.obs             = out.data[1:nrow(out.data),2],
-    L2                = NA,
+    y.obs             = y.obs,
+    L2                = L2,
     predict.bias.cond = sysanal.predict.inp.bias.L1.JA,
     par.tr            = par.tr,
-    par.fix           = par.fix,
-    Var.Bs            = sysanal.Var.Bs,
-    sd.Eps            = sysanal.sd.Eps.L
-  )
+    par.fix           = par.fix )
   
   return(ret)
 }
 
-#---------------------------------------------------------------------
-
-CaPre.predict.Pre <- function(evdata, model, par_samples_Pre, par.tr, par.fix) {
-  
-  eventID <- names(evdata)
-  
-  evdata <- evdata[[1]]
-  
-  L        <- evdata[[1]]
-  out.data <- evdata[[2]]
-  input    <- evdata[[3]]
-  
-  ret <- sysanal.predict.bias.OU.JA (
-    parsamp.L1        = par_samples_Pre,
-    model             = model,
-    eventID           = eventID,
-    #inp.file          = input,
-    #out.data          = out.data,
-    inp               = rep(0,length(L)),
-    ppt               = rep(0,length(L)),
-    L1                = NA,
-    #y.obs             = out.data[2:nrow(out.data),2], # WHYYYYY to leave out the first one???
-    y.obs             = out.data[1:nrow(out.data),2],
-    L2                = L,
-    predict.bias.cond = NA,
-    par.tr            = par.tr,
-    par.fix           = par.fix
-  )
-  
-  return(ret)
-}
 
 #---------------------------------------------------------------------
 
-CaPre.bTr.Pre <- function(transf, res.LPre) {
+CaPre.bTr <- function(transf, res.L) {
   par.tr <- transf$par.tr
   
   if (transf$transf == "LogSinh") {
     inv.fcia <- sysanal.logsinh.inv
     Par.tr <- c(par.tr["alpha"], par.tr["beta"])
   }
-  
   if (transf$transf == "BC") {
     inv.fcia <- sysanal.boxcox.inv
     Par.tr <- c(par.tr["l1"], par.tr["l2"])
   }
   
-  ret <- list(
-    bct.Y.L2.samp.Pre      = inv.fcia(res.LPre$Y.L2.samp, Par.tr[1], Par.tr[2]),
-    
-    bct.y.L1.quant.Pre     = inv.fcia(res.LPre$y.L1.quant, Par.tr[1], Par.tr[2]),
-    bct.y.L2.quant.Pre     = inv.fcia(res.LPre$y.L2.quant, Par.tr[1], Par.tr[2]),
-    bct.yplusB.L1.quant.Pre= inv.fcia(res.LPre$yplusB.L1.quant, Par.tr[1], Par.tr[2]),
-    bct.yplusB.L2.quant.Pre= inv.fcia(res.LPre$yplusB.L2.quant, Par.tr[1], Par.tr[2]),
-    bct.Y.L1.quant.Pre     = inv.fcia(res.LPre$Y.L1.quant, Par.tr[1], Par.tr[2]),
-    bct.Y.L2.quant.Pre     = inv.fcia(res.LPre$Y.L2.quant, Par.tr[1], Par.tr[2]),
-    
-    timestepPre = sysanal.decode( colnames(res.LPre[[4]]) )[,2]
-  )
-  
-  return(ret)
-}
-
-
-
-#---------------------------------------------------------------------
-
-
-CaPre.bTr.Ca <- function(transf, res.LCa ) {
-  par.tr <- transf$par.tr
-  
-  if (transf$transf == "LogSinh") {
-    inv.fcia <- sysanal.logsinh.inv
-    Par.tr <- c(par.tr["alpha"], par.tr["beta"])
+  ret <- list()
+  for ( i_names in names(res.L) ) {
+    if ( length(res.L[[i_names]]) == 0 ) { next }
+    if ( is.na(res.L[[i_names]]) ) { next }
+    ret[[i_names]] <- inv.fcia( res.L[[i_names]], Par.tr[1], Par.tr[2] )
   }
-  
-  if (transf$transf == "BC") {
-    inv.fcia <- sysanal.boxcox.inv
-    Par.tr <- c(par.tr["l1"], par.tr["l2"])
-  }
-  
-  ret <- list(
-    bct.y.L1.quant.Ca     = inv.fcia(res.LCa$y.L1.quant, Par.tr[1], Par.tr[2]),
-    bct.y.L2.quant.Ca     = inv.fcia(res.LCa$y.L2.quant, Par.tr[1], Par.tr[2]),
-    bct.yplusB.L1.quant.Ca= inv.fcia(res.LCa$yplusB.L1.quant, Par.tr[1], Par.tr[2]),
-    bct.yplusB.L2.quant.Ca= inv.fcia(res.LCa$yplusB.L2.quant, Par.tr[1], Par.tr[2]),
-    bct.Y.L1.quant.Ca     = inv.fcia(res.LCa$Y.L1.quant, Par.tr[1], Par.tr[2]),
-    bct.Y.L2.quant.Ca     = inv.fcia(res.LCa$Y.L2.quant, Par.tr[1], Par.tr[2]),
-    
-    timestepCa = sysanal.decode( colnames(res.LCa[[1]]) )[,2]
-  )
   
   return(ret)
 }
@@ -212,42 +137,42 @@ CaPre.bTr.Ca <- function(transf, res.LCa ) {
 #---------------------------------------------------------------------
 
 CaPre.VerInd.Pre <- function(data_obs, data_mod) {
-  out.data.Pre <- data_obs
-  bct.Y.L2.quant.Pre <-  data_mod
+  data_obs <- data_obs
+  data_mod <-  data_mod
   
-  #o=out.data.Pre[2:nrow(out.data.Pre),2] # WHYYYYY to leave out the first one???
-  o=out.data.Pre[1:nrow(out.data.Pre),2]
-  t.pre=seq(1,length(o),by = 1)
+  #o=data_obs[2:nrow(data_obs),2] # WHYYYYY to leave out the first one???
+  o <- data_obs[1:nrow(data_obs),2]
+  t.pre <- seq(1,length(o),by = 1)
  
-  up.L2 = bct.Y.L2.quant.Pre[(row.names(bct.Y.L2.quant.Pre)=="0.95"),]
-  lo.L2 = bct.Y.L2.quant.Pre[(row.names(bct.Y.L2.quant.Pre)=="0.05"),]
-  ob.L2 = o
-  Out.L2 <- matrix(c(lo.L2,up.L2,ob.L2), ncol = length(ob.L2), nrow = 3, byrow = T,
-                    dimnames = list(c("lo.L2","up.L2","ob.L2"),paste("Q",round(t.pre, digits = 5),sep="_")) )
+  up = data_mod[(row.names(data_mod)=="0.95"),]
+  lo = data_mod[(row.names(data_mod)=="0.05"),]
+  ob = o
+  Out <- matrix(c(lo,up,ob), ncol = length(ob), nrow = 3, byrow = T,
+                    dimnames = list(c("lo","up","ob"),paste("Q",round(t.pre, digits = 5),sep="_")) )
   
   
-  avail.data <- which(!is.na(ob.L2))
-  red.points <- rep(NA, length(ob.L2)) # data outside of the predicted band
+  avail.data <- which(!is.na(ob))
+  red.points <- rep(NA, length(ob)) # data outside of the predicted band
   for (i in avail.data) {
-      if ( (up.L2[i] < ob.L2[i])
+      if ( (up[i] < ob[i])
            ||
-           (lo.L2[i] > ob.L2[i])
+           (lo[i] > ob[i])
           ) {
-        red.points[i] <- ob.L2[i]  
+        red.points[i] <- ob[i]  
       }
   }
   
-  if ( length(which(is.na(ob.L2))) > 0 ) { avail.data <- ob.L2[ - which(is.na(ob.L2))] }
+  if ( length(which(is.na(ob))) > 0 ) { avail.data <- ob[ - which(is.na(ob))] }
   reliab <-  format(( 1 - length(which(!is.na(red.points))) / length(avail.data) ) * 100, digits=3) # prediction reliability [%]
   
-  ABW <- format(mean(up.L2 - lo.L2), digits=3) # Average Band Width
-  relABW <- format(as.numeric(ABW) / sd(ob.L2), digits=3) # Average Band Width relative to standard deviation of observations
+  ABW <- format(mean(up - lo), digits=3) # Average Band Width
+  relABW <- format(as.numeric(ABW) / sd(ob), digits=3) # Average Band Width relative to standard deviation of observations
   
-  QuSc.pre <- apply(Out.L2, 2, quscore)
-  MIS.L2 <- format((mean( QuSc.pre , na.rm = TRUE)), digits=3) # Mean of Interval Scores
-  relMIS.L2 <- format(as.numeric(MIS.L2) / sd(ob.L2), digits=3) # Mean of Interval Scores relative to standard deviation of observations
+  QuSc.pre <- apply(Out, 2, quscore)
+  MIS <- format((mean( QuSc.pre , na.rm = TRUE)), digits=3) # Mean of Interval Scores
+  relMIS <- format(as.numeric(MIS) / sd(ob), digits=3) # Mean of Interval Scores relative to standard deviation of observations
   
-  ret <- list(ABW=ABW, relABW=relABW, reliab=reliab, MIS=MIS.L2, relMIS=relMIS.L2, QuSc=QuSc.pre, red.points=red.points)
+  ret <- list(ABW=ABW, relABW=relABW, reliab=reliab, MIS=MIS, relMIS=relMIS, QuSc=QuSc.pre, red.points=red.points)
   return(ret)
 }
 
@@ -257,12 +182,14 @@ CaPre.VerInd.Pre <- function(data_obs, data_mod) {
 # calculates statistics for prediction events
 statist.CaPre.res <- function(data_mod, data_obs, skip) {   # skip - number of event ignored when calculating overall stats (ret.all)
   
+  Y_quant <- names(data_mod[[1]])[ grepl("Y.L..quant", names(data_mod[[1]]) ) ]
+  
   # Verification Indicies (ABW, reliab, MIS, red points)
   VerInd.statistics <- c("ABW", "relABW", "reliab", "MIS", "relMIS", "n.timesteps", "n.red.points")
   VerInd <- list();  VerInd.stat <-  data.frame(matrix(NA, ncol=length(VerInd.statistics), nrow=length(data_obs)))
   names(VerInd.stat) <- VerInd.statistics
   for (i in 1 : length(data_mod)) {
-    hlp <- CaPre.VerInd.Pre(out.data.Pre = data_obs[[i]][[2]], bct.Y.L2.quant.Pre = data_mod[[i]]$bct.Y.L2.quant.Pre)
+    hlp <- CaPre.VerInd.Pre(data_obs = data_obs[[i]][[2]], data_mod = data_mod[[i]][[Y_quant]])
     VerInd.stat[i,] <- as.numeric( c(hlp$ABW, hlp$relABW, hlp$reliab, hlp$MIS, hlp$relMIS, 
                                    length(hlp$red.points), length(which(is.na(hlp$red.points) == TRUE)) )
                                   )  
@@ -293,11 +220,11 @@ statist.CaPre.res <- function(data_mod, data_obs, skip) {   # skip - number of e
   ret <- data.frame(matrix(NA, ncol=length(my.stats), nrow=length(data_obs)))
   names(ret) <- my.stats
   
-  for (i in 1 : length(data_obs)) {
+  for ( i in 1 : length(data_obs) ) {
     id <- substr( data_obs[[i]][[3]], nchar(data_obs[[i]][[3]])-22, nchar(data_obs[[i]][[3]])-4 ) # event id (starting time)
     
     bct <- data_mod[[i]]
-    timestep <- data_mod[[i]]$timestepPre
+    timestep  <- sysanal.decode( colnames( data_mod[[i]][[Y_quant]] ) )[,2]
     obs <- data_obs[[i]][[2]][,2]
     Vobs      <- Vtot (Qdata = obs, timestep = timestep)
     Vpeak.obs <- Vpeak(Qdata = obs, timestep = timestep)
@@ -306,14 +233,14 @@ statist.CaPre.res <- function(data_mod, data_obs, skip) {   # skip - number of e
     if (i==1) {
       my.stats.event <- c("NS(Y)", "V(Y)", "Vpeak(Y)", "shift(Qmax(Y))", 
                           paste(intToUtf8(0x03B4), "V(Y)", sep=""), paste(intToUtf8(0x03B4), "Vpeak(Y)", sep="") )
-      event.table.all <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct$bct.Y.L2.samp.Pre[,1])*length(data_obs) ))
+      event.table.all <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct[[Y_quant]][,1])*length(data_obs) ))
       names(event.table.all) <- my.stats.event
     }
-    event.table <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct$bct.Y.L2.samp.Pre[,1])))
+    event.table <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct[[Y_quant]][,1])))
     names(event.table) <- my.stats.event
     
-    for (j in 1 : length(bct$bct.Y.L2.samp.Pre[,1]) ) {
-      Qmod  <- bct$bct.Y.L2.samp.Pre[j,]
+    for (j in 1 : length(bct[[Y_quant]][,1]) ) {
+      Qmod  <- bct[[Y_quant]][j,]
       
       NS     <- enesko(mod = Qmod, obs = obs)
       V      <- Vtot(Qdata = Qmod, timestep = timestep)
@@ -334,40 +261,40 @@ statist.CaPre.res <- function(data_mod, data_obs, skip) {   # skip - number of e
       }  
     }
     if (ignore == F) {
-      event.table.all[((i-1)*length(bct$bct.Y.L2.samp.Pre[,1]) + 1) : (i*length(bct$bct.Y.L2.samp.Pre[,1])),] <- event.table
+      event.table.all[ ((i-1)*length(bct[[Y_quant]][,1]) + 1) : (i*length(bct[[Y_quant]][,1])), ] <- event.table
     }
     
     
     # statistics for E(Y), Y_05 and Y_95
-    Qmod.mean <- apply(bct$bct.Y.L2.samp.Pre, 2, mean)
-    Qmod.95   <- bct$bct.Y.L2.quant.Pre[(row.names(bct$bct.Y.L2.quant.Pre)=="0.95"),]
-    Qmod.05   <- bct$bct.Y.L2.quant.Pre[(row.names(bct$bct.Y.L2.quant.Pre)=="0.05"),]
+    Qmod.med  <- bct[[Y_quant]][(row.names(bct[[Y_quant]])=="0.5"),]
+    Qmod.95   <- bct[[Y_quant]][(row.names(bct[[Y_quant]])=="0.95"),]
+    Qmod.05   <- bct[[Y_quant]][(row.names(bct[[Y_quant]])=="0.05"),]
     
     # NS efficiency
-    NS.mean <- enesko(mod = Qmod.mean, obs = obs)
+    NS.med <- enesko(mod = Qmod.med, obs = obs)
     NS.95   <- enesko(mod = Qmod.95, obs = obs)
     NS.05   <- enesko(mod = Qmod.05, obs = obs)
     
     # relative errors delta for total V
-    Vmod.mean <- Vtot(Qdata = Qmod.mean, timestep = timestep)
+    Vmod.med <- Vtot(Qdata = Qmod.med, timestep = timestep)
     Vmod.95   <- Vtot(Qdata = Qmod.95  , timestep = timestep)
     Vmod.05   <- Vtot(Qdata = Qmod.05  , timestep = timestep)
     
-    deltaV.mean <-  round( (Vmod.mean - Vobs) / Vobs, 3 )
+    deltaV.med <-  round( (Vmod.med - Vobs) / Vobs, 3 )
     deltaV.95   <-  round( (Vmod.95   - Vobs) / Vobs, 3 )
     deltaV.05   <-  round( (Vmod.05   - Vobs) / Vobs, 3 )
     
     # relative errors delta for peak V
-    Vpeak.mod.mean <- Vpeak(Qdata = Qmod.mean, timestep = timestep)
+    Vpeak.mod.med <- Vpeak(Qdata = Qmod.med, timestep = timestep)
     Vpeak.mod.95   <- Vpeak(Qdata = Qmod.95  , timestep = timestep)
     Vpeak.mod.05   <- Vpeak(Qdata = Qmod.05  , timestep = timestep)
     
-    deltaVpeak.mean <-  round( (Vpeak.mod.mean - Vpeak.obs) / Vpeak.obs, 3 )
+    deltaVpeak.med <-  round( (Vpeak.mod.med - Vpeak.obs) / Vpeak.obs, 3 )
     deltaVpeak.95   <-  round( (Vpeak.mod.95   - Vpeak.obs) / Vpeak.obs, 3 )
     deltaVpeak.05   <-  round( (Vpeak.mod.05   - Vpeak.obs) / Vpeak.obs, 3 )
     
     # Qmax time shifts
-    shift.mean <- time.shift(series1 = Qmod.mean, series2 = obs, timestep = timestep)
+    shift.med <- time.shift(series1 = Qmod.med, series2 = obs, timestep = timestep)
     shift.95   <- time.shift(series1 = Qmod.95,   series2 = obs, timestep = timestep)
     shift.05   <- time.shift(series1 = Qmod.05,   series2 = obs, timestep = timestep)
     
@@ -376,12 +303,12 @@ statist.CaPre.res <- function(data_mod, data_obs, skip) {   # skip - number of e
     IS.Vpeak <- quscore(x=c(Vpeak.mod.05, Vpeak.mod.95, Vpeak.obs), conf=0.1); IS.Vpeak <- round(IS.Vpeak, 0) # [l]
     
     
-    ret[i,] <- c(id, NS.mean, NS.95, NS.05, 
-                 deltaV.mean, deltaV.95, deltaV.05, 
+    ret[i,] <- c(id, NS.med, NS.95, NS.05, 
+                 deltaV.med, deltaV.95, deltaV.05, 
                  round(mean(event.table[,5]), 3), round(sd(event.table[,5]), 3), # dV
-                 deltaVpeak.mean, deltaVpeak.95, deltaVpeak.05,
+                 deltaVpeak.med, deltaVpeak.95, deltaVpeak.05,
                  round(mean(event.table[,6]), 3), round(sd(event.table[,6]), 3), # dVpeak
-                 shift.mean, shift.95, shift.05,
+                 shift.med, shift.95, shift.05,
                  round(mean(event.table[,4]), 3), round(sd(event.table[,4]), 3), # time shift
                  round(mean(event.table[,1]), 3), round(sd(event.table[,1]), 3)  # NS
     )
@@ -424,10 +351,10 @@ CaPre.plot.new <- function( data_obs, data_mod, eventSet ) {
   if ( eventSet == "Ca"  ) { L <- "L1" }
   if ( eventSet == "Pre" ) { L <- "L2" }
   
-  y.quant   <- data_mod[[ paste0("bct.y.", L, ".quant.", eventSet) ]]
-  y_B.quant <- data_mod[[ paste0("bct.yplusB.", L, ".quant.", eventSet) ]]
-  Y.quant   <- data_mod[[ paste0("bct.Y.", L, ".quant.", eventSet) ]]
-  timestep  <- data_mod[[ paste0("timestep", eventSet) ]]
+  y.quant   <- data_mod[[ paste0("y.", L, ".quant") ]]
+  y_B.quant <- data_mod[[ paste0("yplusB.", L, ".quant") ]]
+  Y.quant   <- data_mod[[ paste0("Y.", L, ".quant") ]]
+  timestep  <- sysanal.decode( colnames(y.quant) )[,2]
   
   
   plot( x = timestep, 

@@ -279,25 +279,32 @@ if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
 
 #######################################
 # Prediction and back-transformation for the calibration phase (Ca events) and validation phase (Pre events)
-res.LCa <- list()
+res.LCa <- list(); res.LCa.bTr <- list()
 for (i in 1 : length(dataCa)) {
-  res.LCa[[i]] <- CaPre.predict.Ca( evdata = dataCa[i], model = pseudoHydro,
-                                    par_samples_Pre = par_samples_Pre, par.tr = par.tr, par.fix = par.fix )
-}
-bTr.Ca <- list()
-for (i in 1 : length(dataCa)) {
-  bTr.Ca[[i]] <- CaPre.bTr.Ca(transf = transf, res.LCa = res.LCa[[i]] )
+  res.LCa[[i]] <- CaPre.predict( L1 = dataCa[[i]][[1]], L2 = NA, y.obs = dataCa[[i]][[2]][,2], 
+                                 inp.file = dataCa[[i]][[3]], eventID = names(dataCa[i]), model = pseudoHydro,
+                                 par_samples_Pre = par_samples_Pre, par.tr = par.tr, par.fix = par.fix )
+  
+  res.LCa.bTr[[i]] <- CaPre.bTr(transf = transf, res.L = res.LCa[[i]] )
 }
 
-res.LPre <- list()
-for (i in 1 : length(dataPre)) {
-  res.LPre[[i]] <- CaPre.predict.Pre( evdata = dataPre[i],  model = pseudoHydro,
-                                      par_samples_Pre = par_samples_Pre, par.tr = par.tr, par.fix = par.fix )
+res.LCa.as.Pre <- list(); res.LCa.as.Pre.bTr <- list()
+for (i in 1 : length(dataCa)) {
+  res.LCa.as.Pre[[i]] <- CaPre.predict( L1 = NA, L2 = dataCa[[i]][[1]], y.obs = NA, 
+                                        inp.file = dataCa[[i]][[3]], eventID = names(dataCa[i]), model = pseudoHydro,
+                                        par_samples_Pre = par_samples_Pre, par.tr = par.tr, par.fix = par.fix )
+  
+  res.LCa.as.Pre.bTr [[i]] <- CaPre.bTr(transf = transf, res.L = res.LCa.as.Pre[[i]] )
 }
-bTr.Pre <- list()
+
+res.LPre <- list(); res.LPre.bTr <- list()
 for (i in 1 : length(dataPre)) {
-  bTr.Pre[[i]] <- CaPre.bTr.Pre(transf = transf, res.LPre = res.LPre[[i]] )
-} 
+  res.LPre[[i]] <- CaPre.predict( L1 = NA, L2 = dataPre[[i]][[1]], y.obs = NA, 
+                                  inp.file = dataPre[[i]][[3]], eventID = names(dataPre[i]), model = pseudoHydro,
+                                  par_samples_Pre = par_samples_Pre, par.tr = par.tr, par.fix = par.fix )
+  
+  res.LPre.bTr [[i]] <- CaPre.bTr(transf = transf, res.L = res.LPre[[i]] )
+}
 
 
 
@@ -317,13 +324,19 @@ devtools::load_all(".")
 ## plots hydrographs for Ca events and Pre events
 pdf( paste(out_dir, "/5_hydrographs_Ca.pdf", sep="") , height = 6,  width = 7 , fonts = "Times")
 for ( i in 1 : length(dataPre) ) { 
-  CaPre.plot.new( data_obs = dataCa[[i]], data_mod = bTr.Ca[[i]], eventSet = "Ca" )  
+  CaPre.plot.new( data_obs = dataCa[[i]], data_mod = res.LCa.bTr[[i]], eventSet = "Ca" )  
+}
+dev.off()
+
+pdf( paste(out_dir, "/5_hydrographs_Ca_as_Pre.pdf", sep="") , height = 6,  width = 7 , fonts = "Times")
+for ( i in 1 : length(dataPre) ) { 
+  CaPre.plot.new( data_obs = dataCa[[i]], data_mod = res.LCa.as.Pre.bTr[[i]], eventSet = "Pre" )  
 }
 dev.off()
 
 pdf( paste(out_dir, "/5_hydrographs_Pre.pdf", sep="") , height = 6,  width = 7 , fonts = "Times")
 for ( i in 1 : length(dataPre) ) { 
-  CaPre.plot.new( data_obs = dataPre[[i]], data_mod = bTr.Pre[[i]], eventSet = "Pre" )  
+  CaPre.plot.new( data_obs = dataPre[[i]], data_mod = res.LPre.bTr[[i]], eventSet = "Pre" )  
 }
 dev.off()
 
@@ -331,22 +344,24 @@ dev.off()
 
 #########################################################
 ## statistics of the predicted model outputs
-statistics_Ca  <- statist.CaPre.res( data_mod = bTr.Ca,  data_obs = dataCa, 
+statistics_Ca  <- statist.CaPre.res( data_mod = res.LCa.bTr,  data_obs = dataCa, 
                                      skip = as.numeric(c()) )
-statistics_Pre <- statist.CaPre.res( data_mod = bTr.Pre, data_obs = dataPre, 
+statistics_Ca_as_Pre  <- statist.CaPre.res( data_mod = res.LCa.as.Pre.bTr,  data_obs = dataCa, 
+                                            skip = as.numeric(c()) )
+statistics_Pre <- statist.CaPre.res( data_mod = res.LPre.bTr, data_obs = dataPre, 
                                      skip = as.numeric(c()) )
  
 
 
 
-#######################################           
-## plots the predicted model outputs
-check <- FALSE
-check <- plot.Pre.res( dataCa = dataCa, dataPre = dataPre, 
-                       transf = transf, bTr.Ca = bTr.Ca, bTr.Pre = bTr.Pre,
-                       statistics = statistics_Pre,
-                       pack.dir = out_dir )
-if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
+# #######################################           
+# ## plots the predicted model outputs
+# check <- FALSE
+# check <- plot.Pre.res( dataCa = dataCa, dataPre = dataPre, 
+#                        transf = transf, bTr.Ca = bTr.Ca, bTr.Pre = bTr.Pre,
+#                        statistics = statistics_Pre,
+#                        pack.dir = out_dir )
+# if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
 
 
 

@@ -138,7 +138,7 @@ sysanal.predict.inp.bias.L1.JA <- function(par,model,L1,y.obs,
   n <- n1
   
   # calculate results of deterministic model:
-  y.calc    <- model(par,L1,...)
+  y.calc    <- model(par = par, L = L1, ...)
   #   if ( is.na(y.calc[1]) )
   #   {   
   #     if ( !is.na(L2[1]) ) y.calc    <- model(par, else y.calc    <- model(par,c(L1),...)
@@ -354,6 +354,8 @@ sysanal.predict.bias.OU.JA <- function( parsamp.L1, model, L1, y.obs, #CMP
                                  y.calc  = y.calc,
                                  par.tr  = par.tr,
                                  inp     = inp ,
+                                 Var.Bs  = sysanal.Var.Bs ,
+                                 sd.Eps  = sysanal.sd.Eps.L ,
                                  ...)
       }
       y.L1.samp[j,] <- res$y.calc.L1; # remember: it's transformed
