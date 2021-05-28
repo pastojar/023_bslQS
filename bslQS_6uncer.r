@@ -344,24 +344,38 @@ dev.off()
 
 #########################################################
 ## statistics of the predicted model outputs
-statistics_Ca  <- statist.CaPre.res( data_mod = res.LCa.bTr,  data_obs = dataCa, 
-                                     skip = as.numeric(c()) )
-statistics_Ca_as_Pre  <- statist.CaPre.res( data_mod = res.LCa.as.Pre.bTr,  data_obs = dataCa, 
-                                            skip = as.numeric(c()) )
-statistics_Pre <- statist.CaPre.res( data_mod = res.LPre.bTr, data_obs = dataPre, 
-                                     skip = as.numeric(c()) )
+
+# statistics_Ca  <- statist.CaPre.res( data_mod = res.LCa.bTr,  data_obs = dataCa, 
+#                                      skip = as.numeric(c()) )
+# statistics_Ca_as_Pre  <- statist.CaPre.res( data_mod = res.LCa.as.Pre.bTr,  data_obs = dataCa, 
+#                                             skip = as.numeric(c()) )
+# statistics_Pre <- statist.CaPre.res( data_mod = res.LPre.bTr, data_obs = dataPre, 
+#                                      skip = as.numeric(c()) )
+
+stats_Pre <- stats_inf( data_mod = res.LPre.bTr, data_obs = dataPre )
+
+
+
+#-------
+save.image( file = paste0(getwd(), "/outputs/", package, "_6uncer.Rdata") )
+#-------
+load( paste0( getwd(), "/outputs/bsl.QS_1cal.Rdata" ) )
+load( paste0( getwd(), "/outputs/bsl.QS_2rr.Rdata" ) )
+load( paste0( getwd(), "/outputs/bsl.QS_6uncer.Rdata" ) )
+devtools::load_all(".")
+#-------
  
 
 
 
-# #######################################           
-# ## plots the predicted model outputs
-# check <- FALSE
-# check <- plot.Pre.res( dataCa = dataCa, dataPre = dataPre, 
-#                        transf = transf, bTr.Ca = bTr.Ca, bTr.Pre = bTr.Pre,
-#                        statistics = statistics_Pre,
-#                        pack.dir = out_dir )
-# if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
+#######################################
+## plots the predicted model outputs
+check <- FALSE
+
+check <- plot_stats( stats = stats_Pre , data_obs = data_obs ) {
+  
+}
+if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
 
 
 

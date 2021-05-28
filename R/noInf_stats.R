@@ -227,21 +227,6 @@ simple.stats.core <- function(Qdata) {
 
 #---------------------------------------------------------------------
 
-#compute quantile score as defined by Gneiting 2007, use input from a single time step as vector, use apply to evaluate time series (res=apply(data,2,quscore,conf=0.05))
-#conf = confidence level, corresponding to (1-conf)% interval
-quscore = function(x, conf=0.1) {
-  low=x[1] #lower bound
-  upp=x[2] #upper bound
-  obs=x[3] #observations
-  sh=upp-low #sharpness
-  undersh=(low-obs)*(low>obs)
-  oversh=(obs-upp)*(obs>upp)
-  score=sh+2/conf*(undersh+oversh)
-  return(score)
-}
-
-#---------------------------------------------------------------------
-
 #  total discharged volume
 Vtot <- function(Qdata, timestep) {
   Vtot <- 0

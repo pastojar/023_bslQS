@@ -137,8 +137,6 @@ CaPre.bTr <- function(transf, res.L) {
 #---------------------------------------------------------------------
 
 CaPre.VerInd.Pre <- function(data_obs, data_mod) {
-  data_obs <- data_obs
-  data_mod <-  data_mod
   
   #o=data_obs[2:nrow(data_obs),2] # WHYYYYY to leave out the first one???
   o <- data_obs[1:nrow(data_obs),2]
@@ -150,196 +148,294 @@ CaPre.VerInd.Pre <- function(data_obs, data_mod) {
   Out <- matrix(c(lo,up,ob), ncol = length(ob), nrow = 3, byrow = T,
                     dimnames = list(c("lo","up","ob"),paste("Q",round(t.pre, digits = 5),sep="_")) )
   
+  red_points <- red_points( obs = ob, up = up, lo = lo )
+
   
-  avail.data <- which(!is.na(ob))
-  red.points <- rep(NA, length(ob)) # data outside of the predicted band
-  for (i in avail.data) {
-      if ( (up[i] < ob[i])
-           ||
-           (lo[i] > ob[i])
-          ) {
-        red.points[i] <- ob[i]  
-      }
+  if ( length(which(is.na(ob))) > 0 ) { 
+    avail.data <- ob[ - which(is.na(ob)) ] 
+  } else {
+    avail.data <- ob 
   }
   
-  if ( length(which(is.na(ob))) > 0 ) { avail.data <- ob[ - which(is.na(ob))] }
-  reliab <-  format(( 1 - length(which(!is.na(red.points))) / length(avail.data) ) * 100, digits=3) # prediction reliability [%]
+  reliab <-  ( 1 - length(which(!is.na(red_points))) / length(avail.data) ) * 100  # prediction reliability [%]
   
-  ABW <- format(mean(up - lo), digits=3) # Average Band Width
-  relABW <- format(as.numeric(ABW) / sd(ob), digits=3) # Average Band Width relative to standard deviation of observations
+  ABW <- mean(up - lo)                 # Average Band Width
+  relABW <- as.numeric(ABW) / sd(ob)   # Average Band Width relative to standard deviation of observations
   
-  QuSc.pre <- apply(Out, 2, quscore)
-  MIS <- format((mean( QuSc.pre , na.rm = TRUE)), digits=3) # Mean of Interval Scores
-  relMIS <- format(as.numeric(MIS) / sd(ob), digits=3) # Mean of Interval Scores relative to standard deviation of observations
+  QuSc.pre <- apply(Out, 2, quscore)     # Interval Scores
+  MIS <- mean( QuSc.pre , na.rm = TRUE)  # Mean of Interval Scores
+  relMIS <- MIS / sd(ob)                 # Mean of Interval Scores relative to standard deviation of observations
   
-  ret <- list(ABW=ABW, relABW=relABW, reliab=reliab, MIS=MIS, relMIS=relMIS, QuSc=QuSc.pre, red.points=red.points)
+  MIS_ABW <- MIS / ABW        
+  
+  ret <- c( ABW = ABW, relABW = relABW, rlb.prcnt = reliab, MIS = MIS, relMIS = relMIS, MIS_ABW = MIS_ABW )
   return(ret)
+}
+
+
+#---------------------------------------------------------------------
+
+red_points <- function( obs, up, lo ) {
+  avail.data <- which(!is.na(obs))
+  red_points <- rep(NA, length(obs)) # data outside of the predicted band
+  for (i in avail.data) {
+    if ( (up[i] < obs[i])
+         ||
+         (lo[i] > obs[i])
+    ) {
+      red_points[i] <- obs[i]  
+    }
+  }
+  
+  return(red_points)
 }
 
 #---------------------------------------------------------------------
 
+# compute quantile score as defined by Gneiting 2007, use input from a single time step as vector, 
+# use apply to evaluate time series ( res=apply(data,2,quscore,conf=0.05) )
+# conf = confidence level, corresponding to (1-conf)% interval
+quscore = function(x, conf=0.1) {
+  low=x[1] #lower bound
+  upp=x[2] #upper bound
+  obs=x[3] #observations
+  sh=upp-low #sharpness
+  undersh=(low-obs)*(low>obs)
+  oversh=(obs-upp)*(obs>upp)
+  score=sh+2/conf*(undersh+oversh)
+  return(score)
+}
+
+
+#---------------------------------------------------------------------
 
 # calculates statistics for prediction events
-statist.CaPre.res <- function(data_mod, data_obs, skip) {   # skip - number of event ignored when calculating overall stats (ret.all)
+stats_inf <- function( data_mod,  data_obs ) {
   
-  Y_quant <- names(data_mod[[1]])[ grepl("Y.L..quant", names(data_mod[[1]]) ) ]
+  stats_it   <- list()
+  stats_qntl <- list()
+  stats_band <- list()
   
-  # Verification Indicies (ABW, reliab, MIS, red points)
-  VerInd.statistics <- c("ABW", "relABW", "reliab", "MIS", "relMIS", "n.timesteps", "n.red.points")
-  VerInd <- list();  VerInd.stat <-  data.frame(matrix(NA, ncol=length(VerInd.statistics), nrow=length(data_obs)))
-  names(VerInd.stat) <- VerInd.statistics
-  for (i in 1 : length(data_mod)) {
-    hlp <- CaPre.VerInd.Pre(data_obs = data_obs[[i]][[2]], data_mod = data_mod[[i]][[Y_quant]])
-    VerInd.stat[i,] <- as.numeric( c(hlp$ABW, hlp$relABW, hlp$reliab, hlp$MIS, hlp$relMIS, 
-                                   length(hlp$red.points), length(which(is.na(hlp$red.points) == TRUE)) )
-                                  )  
-    VerInd[[i]] <- data.frame(matrix(NA, ncol=length(hlp$QuSc), nrow=2)); names(VerInd[[i]]) <- data_obs[[i]][[1]]
-    VerInd[[i]][1,] <- hlp$QuSc; VerInd[[i]][2,] <- hlp$red.points
-  }
-  
-  
-  # NSE, Vtot and Vpeak
-  my.stats   <- c("id", "NSE(E(Y))", "NSE(Y_95)", "NSE(Y_05)", 
-                  
-                  paste(intToUtf8(0x03B4), "V(E(Y))", sep=""), paste(intToUtf8(0x03B4), "V(Y_95)", sep=""), 
-                                                               paste(intToUtf8(0x03B4), "V(Y_05)", sep=""),
-                  
-                  paste( "E(", intToUtf8(0x03B4), "V)", sep=""),  paste( "sd(", intToUtf8(0x03B4), "V)", sep=""),
-                  
-                  paste(intToUtf8(0x03B4), "Vpeak(E(Y))", sep=""), paste(intToUtf8(0x03B4), "Vpeak(Y_95)", sep=""), 
-                                                                   paste(intToUtf8(0x03B4), "Vpeak(Y_05)", sep=""),
-                  
-                  paste( "E(", intToUtf8(0x03B4), "Vpeak)", sep=""),  paste( "sd(", intToUtf8(0x03B4), "Vpeak)", sep=""),
-                  
-                  "shift(Qmax(E(Y)))", "shift(Qmax(Y_95))", "shift(Qmax(Y_05))",
-                  
-                  paste( "E(shift(Qmax))", sep=""),  paste( "sd(shift(Qmax))", sep=""),
-                  
-                  paste( "E(NSE)", sep=""),  paste( "sd(NSE)", sep="") )
-  
-  ret <- data.frame(matrix(NA, ncol=length(my.stats), nrow=length(data_obs)))
-  names(ret) <- my.stats
-  
-  for ( i in 1 : length(data_obs) ) {
-    id <- substr( data_obs[[i]][[3]], nchar(data_obs[[i]][[3]])-22, nchar(data_obs[[i]][[3]])-4 ) # event id (starting time)
+  for ( i_ev in 1:length(data_mod) ) {      #  for each event
     
-    bct <- data_mod[[i]]
-    timestep  <- sysanal.decode( colnames( data_mod[[i]][[Y_quant]] ) )[,2]
-    obs <- data_obs[[i]][[2]][,2]
-    Vobs      <- Vtot (Qdata = obs, timestep = timestep)
-    Vpeak.obs <- Vpeak(Qdata = obs, timestep = timestep)
+    Qdata <- data.frame( Qobs      = data_obs[[i_ev]]$Q_Data[,2] ,
+                         timestamp = sysanal.decode( L = data_obs[[i_ev]]$Layout )$val )
     
-    # statistics for all predicted data
-    if (i==1) {
-      my.stats.event <- c("NS(Y)", "V(Y)", "Vpeak(Y)", "shift(Qmax(Y))", 
-                          paste(intToUtf8(0x03B4), "V(Y)", sep=""), paste(intToUtf8(0x03B4), "Vpeak(Y)", sep="") )
-      event.table.all <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct[[Y_quant]][,1])*length(data_obs) ))
-      names(event.table.all) <- my.stats.event
-    }
-    event.table <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct[[Y_quant]][,1])))
-    names(event.table) <- my.stats.event
-    
-    for (j in 1 : length(bct[[Y_quant]][,1]) ) {
-      Qmod  <- bct[[Y_quant]][j,]
-      
-      NS     <- enesko(mod = Qmod, obs = obs)
-      V      <- Vtot(Qdata = Qmod, timestep = timestep)
-      Vpeak  <- Vpeak(Qdata = Qmod, timestep = timestep)
-      shift  <- timestep[which(Qmod==max(Qmod))] - timestep[which(obs==max(obs))]; shift <- round( shift, 3)
-      dV     <- round( (V - Vobs) / Vobs, 3 )
-      dVpeak <- round( (Vpeak - Vpeak.obs) / Vpeak.obs, 3 )
+    # statistics for each iteration
+    data_mod_ev <- data.frame( data_mod[[i_ev]]$Y.L2.samp )
 
-      event.table[j,] <- c(NS, V, Vpeak, shift, dV, dVpeak)
+    for ( i_it in 1:nrow(data_mod_ev) ) {
+      Qdata$Qmod <- as.numeric(data_mod_ev[i_it,])
+
+      stat_ev_it <- simple.stats.core( Qdata = Qdata )
+
+      if ( i_it == 1 ) {
+        stat_ev <- data.frame( t(stat_ev_it) )
+      } else {
+        stat_ev <- rbind(stat_ev, stat_ev_it)
+      }
     }
+
+    stats_it[[ names(data_obs)[i_ev] ]] <- stat_ev
     
-    ignore <- F
-    if (length(skip) > 0 ) {          # checks whether to ignore the given event for the overall statistics  
-      for (j in 1 : length(skip) ) {
-        if (i == skip[j]) {
-          ignore <- T
-        }
-      }  
+    
+    # statistics for prediction band quantiles
+    data_mod_ev_qntls <- apply( X = data_mod_ev, FUN = quantile, MARGIN = 2, probs = seq(0.005, 0.995, 0.005) )
+    rownames( data_mod_ev_qntls ) <- seq(0.005, 0.995, 0.005)
+    
+    for ( i_qntl in 1:nrow(data_mod_ev_qntls) ) {
+      Qdata$Qmod <- as.numeric(data_mod_ev_qntls[i_qntl,])
+      
+      stat_ev_qntl <- simple.stats.core( Qdata = Qdata )
+      
+      if ( i_qntl == 1 ) {
+        stat_ev <- data.frame( t(stat_ev_qntl) )
+      } else {
+        stat_ev <- rbind(stat_ev, stat_ev_qntl)
+      }
     }
-    if (ignore == F) {
-      event.table.all[ ((i-1)*length(bct[[Y_quant]][,1]) + 1) : (i*length(bct[[Y_quant]][,1])), ] <- event.table
+    rownames( stat_ev ) <- rownames( data_mod_ev_qntls )
+    
+    stats_qntl[[ names(data_obs)[i_ev] ]] <- stat_ev
+    
+    
+    # statistics for prediction bands of each event - Verification Indicies (ABW, reliab, MIS...)
+    stats_band_ev <- CaPre.VerInd.Pre( data_obs = data_obs[[i_ev]]$Q_Data, data_mod = data_mod[[i_ev]]$Y.L2.quant )
+    
+    if ( i_ev == 1 ) {
+      stats_band <- data.frame( t(stats_band_ev) )
+    } else {
+      stats_band <- rbind(stats_band, stats_band_ev)
     }
+    rownames( stats_band )[i_ev] <- names( data_obs )[i_ev]
     
-    
-    # statistics for E(Y), Y_05 and Y_95
-    Qmod.med  <- bct[[Y_quant]][(row.names(bct[[Y_quant]])=="0.5"),]
-    Qmod.95   <- bct[[Y_quant]][(row.names(bct[[Y_quant]])=="0.95"),]
-    Qmod.05   <- bct[[Y_quant]][(row.names(bct[[Y_quant]])=="0.05"),]
-    
-    # NS efficiency
-    NS.med <- enesko(mod = Qmod.med, obs = obs)
-    NS.95   <- enesko(mod = Qmod.95, obs = obs)
-    NS.05   <- enesko(mod = Qmod.05, obs = obs)
-    
-    # relative errors delta for total V
-    Vmod.med <- Vtot(Qdata = Qmod.med, timestep = timestep)
-    Vmod.95   <- Vtot(Qdata = Qmod.95  , timestep = timestep)
-    Vmod.05   <- Vtot(Qdata = Qmod.05  , timestep = timestep)
-    
-    deltaV.med <-  round( (Vmod.med - Vobs) / Vobs, 3 )
-    deltaV.95   <-  round( (Vmod.95   - Vobs) / Vobs, 3 )
-    deltaV.05   <-  round( (Vmod.05   - Vobs) / Vobs, 3 )
-    
-    # relative errors delta for peak V
-    Vpeak.mod.med <- Vpeak(Qdata = Qmod.med, timestep = timestep)
-    Vpeak.mod.95   <- Vpeak(Qdata = Qmod.95  , timestep = timestep)
-    Vpeak.mod.05   <- Vpeak(Qdata = Qmod.05  , timestep = timestep)
-    
-    deltaVpeak.med <-  round( (Vpeak.mod.med - Vpeak.obs) / Vpeak.obs, 3 )
-    deltaVpeak.95   <-  round( (Vpeak.mod.95   - Vpeak.obs) / Vpeak.obs, 3 )
-    deltaVpeak.05   <-  round( (Vpeak.mod.05   - Vpeak.obs) / Vpeak.obs, 3 )
-    
-    # Qmax time shifts
-    shift.med <- time.shift(series1 = Qmod.med, series2 = obs, timestep = timestep)
-    shift.95   <- time.shift(series1 = Qmod.95,   series2 = obs, timestep = timestep)
-    shift.05   <- time.shift(series1 = Qmod.05,   series2 = obs, timestep = timestep)
-    
-    # interval scores for total V and peak V
-    IS.V     <- quscore(x=c(Vmod.05, Vmod.95, Vobs), conf=0.1); IS.V <- round(IS.V, 0) # [l]
-    IS.Vpeak <- quscore(x=c(Vpeak.mod.05, Vpeak.mod.95, Vpeak.obs), conf=0.1); IS.Vpeak <- round(IS.Vpeak, 0) # [l]
-    
-    
-    ret[i,] <- c(id, NS.med, NS.95, NS.05, 
-                 deltaV.med, deltaV.95, deltaV.05, 
-                 round(mean(event.table[,5]), 3), round(sd(event.table[,5]), 3), # dV
-                 deltaVpeak.med, deltaVpeak.95, deltaVpeak.05,
-                 round(mean(event.table[,6]), 3), round(sd(event.table[,6]), 3), # dVpeak
-                 shift.med, shift.95, shift.05,
-                 round(mean(event.table[,4]), 3), round(sd(event.table[,4]), 3), # time shift
-                 round(mean(event.table[,1]), 3), round(sd(event.table[,1]), 3)  # NS
-    )
   }
-  
-  bind.ret <- cbind(ret, VerInd.stat)
-  for (i in 2:length(bind.ret[1,])) {          # converts numeric values back to numeric
-    bind.ret[,i] <- as.numeric(bind.ret[,i])
-  }
-  
-  # E and sd for all events together; it is more informative to use the boxplot overview
-  ret.all <- c(round(mean(event.table.all[,5], na.rm=T), 3), round(sd(event.table.all[,5], na.rm=T), 3),  # dV
-               round(mean(event.table.all[,6], na.rm=T), 3), round(sd(event.table.all[,6], na.rm=T), 3),  # dVpeak
-               round(mean(event.table.all[,4], na.rm=T), 3), round(sd(event.table.all[,4], na.rm=T), 3),  # time shift
-               round(mean(event.table.all[,1], na.rm=T), 3), round(sd(event.table.all[,1], na.rm=T), 3), # NS
-               round( sum(as.numeric(bind.ret$n.red.points[!1:length(bind.ret$n.red.points) %in% skip])) / 
-                      sum(as.numeric(bind.ret$n.timesteps [!1:length(bind.ret$n.timesteps) %in% skip]))  , 3) # reliab
-              )
-  names(ret.all) <- c(my.stats[c(8, 9, 13, 14, 18, 19, 20, 21)], "reliab")
-  
-  # data for boxplots A and B
-  boxplot.data <- (bind.ret[ , -c(1, 27, 28)])
-  if (length(skip) > 0 ) {          # checks which events to ignore for the overall statistics  
-    boxplot.data <- boxplot.data[-skip,]  
-  }
-  
-  # data for boxplot C
-  all.iterations <- event.table.all[, -c(2,3)]
-  
-  return(list(bind.ret = bind.ret, VerInd=VerInd, ret.all=ret.all, boxplot.data=boxplot.data, all.iterations=all.iterations))
-}
+ 
+  return( list( stats_it = stats_it, stats_qntl = stats_qntl, stats_band = stats_band ) )    
+} 
+
+
+# 
+# statist.CaPre.res <- function(data_mod, data_obs, skip) {   # skip - number of event ignored when calculating overall stats (ret.all)
+#   
+#   Y_quant <- names(data_mod[[1]])[ grepl("Y.L..quant", names(data_mod[[1]]) ) ]
+#   
+#   # Verification Indicies (ABW, reliab, MIS, red points)
+#   VerInd.statistics <- c("ABW", "relABW", "reliab", "MIS", "relMIS", "n.timesteps", "n.red_points")
+#   VerInd <- list();  VerInd.stat <-  data.frame(matrix(NA, ncol=length(VerInd.statistics), nrow=length(data_obs)))
+#   names(VerInd.stat) <- VerInd.statistics
+#   for (i in 1 : length(data_mod)) {
+#     hlp <- CaPre.VerInd.Pre(data_obs = data_obs[[i]][[2]], data_mod = data_mod[[i]][[Y_quant]])
+#     VerInd.stat[i,] <- as.numeric( c(hlp$ABW, hlp$relABW, hlp$reliab, hlp$MIS, hlp$relMIS, 
+#                                    length(hlp$red_points), length(which(is.na(hlp$red_points) == TRUE)) )
+#                                   )  
+#     VerInd[[i]] <- data.frame(matrix(NA, ncol=length(hlp$QuSc), nrow=2)); names(VerInd[[i]]) <- data_obs[[i]][[1]]
+#     VerInd[[i]][1,] <- hlp$QuSc; VerInd[[i]][2,] <- hlp$red_points
+#   }
+#   
+#   
+#   # NSE, Vtot and Vpeak
+#   my.stats   <- c("id", "NSE(E(Y))", "NSE(Y_95)", "NSE(Y_05)", 
+#                   
+#                   paste(intToUtf8(0x03B4), "V(E(Y))", sep=""), paste(intToUtf8(0x03B4), "V(Y_95)", sep=""), 
+#                                                                paste(intToUtf8(0x03B4), "V(Y_05)", sep=""),
+#                   
+#                   paste( "E(", intToUtf8(0x03B4), "V)", sep=""),  paste( "sd(", intToUtf8(0x03B4), "V)", sep=""),
+#                   
+#                   paste(intToUtf8(0x03B4), "Vpeak(E(Y))", sep=""), paste(intToUtf8(0x03B4), "Vpeak(Y_95)", sep=""), 
+#                                                                    paste(intToUtf8(0x03B4), "Vpeak(Y_05)", sep=""),
+#                   
+#                   paste( "E(", intToUtf8(0x03B4), "Vpeak)", sep=""),  paste( "sd(", intToUtf8(0x03B4), "Vpeak)", sep=""),
+#                   
+#                   "shift(Qmax(E(Y)))", "shift(Qmax(Y_95))", "shift(Qmax(Y_05))",
+#                   
+#                   paste( "E(shift(Qmax))", sep=""),  paste( "sd(shift(Qmax))", sep=""),
+#                   
+#                   paste( "E(NSE)", sep=""),  paste( "sd(NSE)", sep="") )
+#   
+#   ret <- data.frame(matrix(NA, ncol=length(my.stats), nrow=length(data_obs)))
+#   names(ret) <- my.stats
+#   
+#   for ( i in 1 : length(data_obs) ) {
+#     id <- substr( data_obs[[i]][[3]], nchar(data_obs[[i]][[3]])-22, nchar(data_obs[[i]][[3]])-4 ) # event id (starting time)
+#     
+#     bct <- data_mod[[i]]
+#     timestep  <- sysanal.decode( colnames( data_mod[[i]][[Y_quant]] ) )[,2]
+#     obs <- data_obs[[i]][[2]][,2]
+#     Vobs      <- Vtot (Qdata = obs, timestep = timestep)
+#     Vpeak.obs <- Vpeak(Qdata = obs, timestep = timestep)
+#     
+#     # statistics for all predicted data
+#     if (i==1) {
+#       my.stats.event <- c("NS(Y)", "V(Y)", "Vpeak(Y)", "shift(Qmax(Y))", 
+#                           paste(intToUtf8(0x03B4), "V(Y)", sep=""), paste(intToUtf8(0x03B4), "Vpeak(Y)", sep="") )
+#       event.table.all <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct[[Y_quant]][,1])*length(data_obs) ))
+#       names(event.table.all) <- my.stats.event
+#     }
+#     event.table <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct[[Y_quant]][,1])))
+#     names(event.table) <- my.stats.event
+#     
+#     for (j in 1 : length(bct[[Y_quant]][,1]) ) {
+#       Qmod  <- bct[[Y_quant]][j,]
+#       
+#       NS     <- enesko(mod = Qmod, obs = obs)
+#       V      <- Vtot(Qdata = Qmod, timestep = timestep)
+#       Vpeak  <- Vpeak(Qdata = Qmod, timestep = timestep)
+#       shift  <- timestep[which(Qmod==max(Qmod))] - timestep[which(obs==max(obs))]; shift <- round( shift, 3)
+#       dV     <- round( (V - Vobs) / Vobs, 3 )
+#       dVpeak <- round( (Vpeak - Vpeak.obs) / Vpeak.obs, 3 )
+# 
+#       event.table[j,] <- c(NS, V, Vpeak, shift, dV, dVpeak)
+#     }
+#     
+#     ignore <- F
+#     if (length(skip) > 0 ) {          # checks whether to ignore the given event for the overall statistics  
+#       for (j in 1 : length(skip) ) {
+#         if (i == skip[j]) {
+#           ignore <- T
+#         }
+#       }  
+#     }
+#     if (ignore == F) {
+#       event.table.all[ ((i-1)*length(bct[[Y_quant]][,1]) + 1) : (i*length(bct[[Y_quant]][,1])), ] <- event.table
+#     }
+#     
+#     
+#     # statistics for E(Y), Y_05 and Y_95
+#     Qmod.med  <- bct[[Y_quant]][(row.names(bct[[Y_quant]])=="0.5"),]
+#     Qmod.95   <- bct[[Y_quant]][(row.names(bct[[Y_quant]])=="0.95"),]
+#     Qmod.05   <- bct[[Y_quant]][(row.names(bct[[Y_quant]])=="0.05"),]
+#     
+#     # NS efficiency
+#     NS.med <- enesko(mod = Qmod.med, obs = obs)
+#     NS.95   <- enesko(mod = Qmod.95, obs = obs)
+#     NS.05   <- enesko(mod = Qmod.05, obs = obs)
+#     
+#     # relative errors delta for total V
+#     Vmod.med <- Vtot(Qdata = Qmod.med, timestep = timestep)
+#     Vmod.95   <- Vtot(Qdata = Qmod.95  , timestep = timestep)
+#     Vmod.05   <- Vtot(Qdata = Qmod.05  , timestep = timestep)
+#     
+#     deltaV.med <-  round( (Vmod.med - Vobs) / Vobs, 3 )
+#     deltaV.95   <-  round( (Vmod.95   - Vobs) / Vobs, 3 )
+#     deltaV.05   <-  round( (Vmod.05   - Vobs) / Vobs, 3 )
+#     
+#     # relative errors delta for peak V
+#     Vpeak.mod.med <- Vpeak(Qdata = Qmod.med, timestep = timestep)
+#     Vpeak.mod.95   <- Vpeak(Qdata = Qmod.95  , timestep = timestep)
+#     Vpeak.mod.05   <- Vpeak(Qdata = Qmod.05  , timestep = timestep)
+#     
+#     deltaVpeak.med <-  round( (Vpeak.mod.med - Vpeak.obs) / Vpeak.obs, 3 )
+#     deltaVpeak.95   <-  round( (Vpeak.mod.95   - Vpeak.obs) / Vpeak.obs, 3 )
+#     deltaVpeak.05   <-  round( (Vpeak.mod.05   - Vpeak.obs) / Vpeak.obs, 3 )
+#     
+#     # Qmax time shifts
+#     shift.med <- time.shift(series1 = Qmod.med, series2 = obs, timestep = timestep)
+#     shift.95   <- time.shift(series1 = Qmod.95,   series2 = obs, timestep = timestep)
+#     shift.05   <- time.shift(series1 = Qmod.05,   series2 = obs, timestep = timestep)
+#     
+#     # interval scores for total V and peak V
+#     IS.V     <- quscore(x=c(Vmod.05, Vmod.95, Vobs), conf=0.1); IS.V <- round(IS.V, 0) # [l]
+#     IS.Vpeak <- quscore(x=c(Vpeak.mod.05, Vpeak.mod.95, Vpeak.obs), conf=0.1); IS.Vpeak <- round(IS.Vpeak, 0) # [l]
+#     
+#     
+#     ret[i,] <- c(id, NS.med, NS.95, NS.05, 
+#                  deltaV.med, deltaV.95, deltaV.05, 
+#                  round(mean(event.table[,5]), 3), round(sd(event.table[,5]), 3), # dV
+#                  deltaVpeak.med, deltaVpeak.95, deltaVpeak.05,
+#                  round(mean(event.table[,6]), 3), round(sd(event.table[,6]), 3), # dVpeak
+#                  shift.med, shift.95, shift.05,
+#                  round(mean(event.table[,4]), 3), round(sd(event.table[,4]), 3), # time shift
+#                  round(mean(event.table[,1]), 3), round(sd(event.table[,1]), 3)  # NS
+#     )
+#   }
+#   
+#   bind.ret <- cbind(ret, VerInd.stat)
+#   for (i in 2:length(bind.ret[1,])) {          # converts numeric values back to numeric
+#     bind.ret[,i] <- as.numeric(bind.ret[,i])
+#   }
+#   
+#   # E and sd for all events together; it is more informative to use the boxplot overview
+#   ret.all <- c(round(mean(event.table.all[,5], na.rm=T), 3), round(sd(event.table.all[,5], na.rm=T), 3),  # dV
+#                round(mean(event.table.all[,6], na.rm=T), 3), round(sd(event.table.all[,6], na.rm=T), 3),  # dVpeak
+#                round(mean(event.table.all[,4], na.rm=T), 3), round(sd(event.table.all[,4], na.rm=T), 3),  # time shift
+#                round(mean(event.table.all[,1], na.rm=T), 3), round(sd(event.table.all[,1], na.rm=T), 3), # NS
+#                round( sum(as.numeric(bind.ret$n.red_points[!1:length(bind.ret$n.red_points) %in% skip])) / 
+#                       sum(as.numeric(bind.ret$n.timesteps [!1:length(bind.ret$n.timesteps) %in% skip]))  , 3) # reliab
+#               )
+#   names(ret.all) <- c(my.stats[c(8, 9, 13, 14, 18, 19, 20, 21)], "reliab")
+#   
+#   # data for boxplots A and B
+#   boxplot.data <- (bind.ret[ , -c(1, 27, 28)])
+#   if (length(skip) > 0 ) {          # checks which events to ignore for the overall statistics  
+#     boxplot.data <- boxplot.data[-skip,]  
+#   }
+#   
+#   # data for boxplot C
+#   all.iterations <- event.table.all[, -c(2,3)]
+#   
+#   return(list(bind.ret = bind.ret, VerInd=VerInd, ret.all=ret.all, boxplot.data=boxplot.data, all.iterations=all.iterations))
+# }
 
 
 #---------------------------------------------------------------------
@@ -387,7 +483,7 @@ CaPre.plot.new <- function( data_obs, data_mod, eventSet ) {
   points(x =  timestep, y = out.data_obs[1:nrow(out.data_obs),2], col="blue")
   
   VerInd <- CaPre.VerInd.Pre( data_obs = data_obs$Q_Data, data_mod = Y.quant )
-  points(x =  timestep, y = VerInd$red.points, col="red")
+  points(x =  timestep, y = VerInd$red_points, col="red")
 
   
 }
@@ -395,297 +491,84 @@ CaPre.plot.new <- function( data_obs, data_mod, eventSet ) {
 
 #---------------------------------------------------------------------
 
+# plots statistics overview
+plot_stats <- function( stats, data_obs ) {
+ 
+  for ( i_ev in 1:length(stats$stats_qntl) ) {
+    
+    for ( i_stat in colnames( stats$stats_qntl[[1]] ) ) {
+      stats_ev <- stats$stats_qntl[[i_ev]] [ rownames(stats$stats_qntl[[i_ev]]) %in% as.character(seq(0.05, 0.95, 0.005)) , ]
+      assign( paste0( i_stat, "_ev" ) , stats_ev[ , i_stat ] )
+      
+      if ( i_ev == 1 ) {
+        assign( paste0( i_stat, "_all_ev" ) , eval( parse( text = paste0( i_stat, "_ev" ) ) ) ) 
+      } else {
+        assign( paste0( i_stat, "_all_ev" ) , c( eval( parse( text = paste0( i_stat, "_all_ev" ) ) ), 
+                                                 eval( parse( text = paste0( i_stat, "_ev"     ) ) ) )   )
+      }
+      
+    }
+    
+  }
+  
+  png( paste0(out_dir, "/stats_qntl.png") ,
+       type="cairo", units = "in", width = 3, height = 5*4, res = 150 )
+  
+    par( mar = c(1, 4, 1, 1), mfrow = c(4, 1), cex = 1.5 )
+    
+    for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
+      boxplot( eval( parse( text = paste0( i_stat, "_all_ev" ) ) ) ,
+               ylab = i_stat ,
+               range = 0  )
+    }
+  dev.off()
+  
+  
+  #-----------------------------------------------
+  
+  for ( i_ev in 1:length(stats$stats_it) ) {
+    
+    for ( i_stat in colnames( stats$stats_it[[1]] ) ) {
+      stats_ev <- stats$stats_it[[i_ev]] 
+      assign( paste0( i_stat, "_ev" ) , stats_ev[ , i_stat ] )
+      
+      if ( i_ev == 1 ) {
+        assign( paste0( i_stat, "_all_ev" ) , eval( parse( text = paste0( i_stat, "_ev" ) ) ) ) 
+      } else {
+        assign( paste0( i_stat, "_all_ev" ) , c( eval( parse( text = paste0( i_stat, "_all_ev" ) ) ), 
+                                                 eval( parse( text = paste0( i_stat, "_ev"     ) ) ) )   )
+      }
+      
+    }
+    
+  }
+  
+  png( paste0(out_dir, "/stats_it.png") ,
+       type="cairo", units = "in", width = 3, height = 5*4, res = 150 )
+  
+  par( mar = c(1, 4, 1, 1), mfrow = c(4, 1), cex = 1.5 )
+  
+  for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
+    boxplot( eval( parse( text = paste0( i_stat, "_all_ev" ) ) ) ,
+             ylab = i_stat ,
+             range = 0  )
+  }
+  dev.off()
+  
+  return(TRUE)   
+}
+  
+
+#---------------------------------------------------------------------
+
+# plots statistics overview
 plot.Pre.res <- function( dataCa, dataPre, 
                           bTr.Ca, bTr.Pre,
                           pack.dir, statistics) {
 
-
-  
-  # prints statistics overview
- 
   for (ii in 1 : length(to.plot.list[[1]]$statistics)) {
-    
-    # table   
-    pdf( paste(pack.dir, "/00_Pre_", names(to.plot.list[[1]]$statistics)[ii], "_stats_table.pdf", sep="") , height = 3.5,  width = 7)
-      par(mai=c(0.2, 0.0, 0.2, 0.0))
-      plot.new()
-      legend("top", inset=0.00, pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1.2,
-             legend = c(paste("overall statistics", sep=""))
-      )
-      Legend <- c( " ", names(to.plot.list[[1]]$statistics[[ii]]$ret.all))
-      for (i in 1 : length(hydro.list)) {
-        Legend <- c(Legend,  names(to.plot.list)[[i]], to.plot.list[[i]]$statistics[[ii]]$ret.all)
-      }
-      
-      legend("top", inset=0.15, pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=0.8, ncol=length(hydro.list)+1,
-             legend = Legend
-      )
-    dev.off()
-    
-    # barplots
-    pdf( paste(pack.dir, "/00_Pre_", names(to.plot.list[[1]]$statistics)[ii], "_stats_barplot.pdf", sep="") , height = 6,  width = 7)
-      statMatr <- matrix(NA, nrow = 3, ncol = 9); 
-      colnames(statMatr) <- names(to.plot.list[[1]]$statistics[[ii]]$ret.all)
-      rownames(statMatr) <- names(to.plot.list) 
-      for (i in 1:length(to.plot.list)) {
-        statMatr[i,] <- to.plot.list[[i]]$statistics[[ii]]$ret.all
-      }
-      
-      par(tcl=-0.5, family="serif", omi=c(0,0,0,0), cex.lab=0.8, cex.axis=0.7 )
-      split.screen(c(2, 1))       # splits display into two screens
-      split.screen(c(1, 2), screen = 2) # splits the bottom half into 2
-      # plot up
-        screen(1) 
-        par(mai=c(0.6, 0.5, 0.3, 0.1))
-        barCenters <- barplot(height = statMatr[,c(1,3,7)], ylim = c(-1, 1),
-                              beside = T, axes = T, legend.text = T,
-                              names.arg = c(NA,NA,NA),
-                              main = "dimensionless statitics: E + sd",
-                              border = "black",
-                              args.legend = list(title = "rainfall data", 
-                                                 x = "bottomright",
-                                                 cex = .7))
-        
-        mtext(side=1, text=names(statMatr[1,c(1,3,7)]), at=barCenters[2,], line = 0)
-        
-        arrows(barCenters, statMatr[,c(1,3,7)] - 0.5 * statMatr[,c(2,4,8)], 
-               barCenters, statMatr[,c(1,3,7)] + 0.5 * statMatr[,c(2,4,8)],
-               lwd = 1.5, angle = 90,
-               code = 3, length = 0.05)
-        
-        lines(x=c(1,15), y=c(-1,-1), lty=2); lines(x=c(1,15), y=c(1,1), lty=2); lines(x=c(1,15), y=c(0,0), lty=2)
-      
-      # plot down left
-        screen(3) 
-        par(mai=c(0.3, 1.1, 0.6, 0.1))
-        barCenters <- barplot(height = as.matrix(statMatr[,5]), 
-                              ylim = c(-max(statMatr[,5] + (0.5 * statMatr[,6]))-0.5, max(statMatr[,5] + (0.5 * statMatr[,6]))+0.5),
-                              beside = T, 
-                              border = "black", axes = TRUE,
-                              ylab = "shift(Qmax) [h]",
-                              main = "shift(Qmax): E + sd")
-        arrows(barCenters, statMatr[,5] - 0.5 * statMatr[,6], 
-               barCenters, statMatr[,5] + 0.5 * statMatr[,6],
-               lwd = 1.5, angle = 90,
-               code = 3, length = 0.05)
-       
-      # plot down right
-        screen(4)
-        par(mai=c(0.5, 1.1, 0.6, 0.1))
-        barCenters <- barplot(height = as.matrix(statMatr[,9]), 
-                              ylim = c(0,1),
-                              beside = T, 
-                              border = "black", axes = TRUE,
-                              main = "reliability")
 
-    close.screen(all = TRUE)
-    dev.off()
-    
-    
-    # # boxplots A 
-    # pdf( paste(pack.dir, "/00_Pre_", names(to.plot.list[[1]]$statistics)[ii], "_stats_bxpltA.pdf", sep="") , height = 6,  width = 7)
-    #   nValues <- length(to.plot.list[[1]]$statistics[[ii]]$boxplot.data[1,]) * 
-    #              length(to.plot.list[[1]]$statistics[[ii]]$boxplot.data[,1])    
-    #   BoxPlot <- data.frame(matrix(NA, ncol=3, nrow= nValues * length(to.plot.list)))
-    #   colnames(BoxPlot) <- c("value", "metric", "datSrc")
-    #   
-    #   for (i in 1:length(to.plot.list)) {
-    #     for (j in 1:length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[1,])) {
-    #       pos <- (i-1) * nValues + 
-    #              (j-1) * (length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,1])) + 
-    #              (1 : length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,1]))
-    #       BoxPlot$value [pos]  <- to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,j]
-    #       BoxPlot$metric[pos]  <- colnames(to.plot.list[[i]]$statistics[[ii]]$boxplot.data)[j]
-    #       BoxPlot$datSrc[pos]  <- names(to.plot.list)[i]
-    #     }
-    #   }
-    #   
-    #   par(tcl=-0.5, family="serif", omi=c(0,0,0,0), cex.lab=0.8, cex.axis=0.7, cex.main=0.8,
-    #       mai=c(0.3, 0.5, 0.2, 0.1), mgp=c(1.3, 0.6, 0) )
-    #   split.screen(c(2, 1))       # splits display into two screens
-    #   split.screen(c(1, 3), screen = 1) # splits the top    half into 3
-    #   split.screen(c(1, 3), screen = 2) # splits the bottom half into 3
-    #   
-    #   # plot up left
-    #   screen(3) 
-    #     Plot1 <- c( which( BoxPlot$metric == paste("E(", intToUtf8(0x03B4), "V)", sep="") ),        # delta V
-    #                 which( BoxPlot$metric == paste("E(", intToUtf8(0x03B4), "Vpeak)", sep="") )     # delta Vpeak
-    #                )    
-    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n',
-    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7),  ylab = "[-]",
-    #             ylim = c(-max(abs(BoxPlot$value[Plot1])), max(abs(BoxPlot$value[Plot1]))) )
-    #     legend(x = "top", legend = names( to.plot.list)[order(names(to.plot.list))],
-    #            fill = c('white', 'gray80', 'gray30'), cex = 0.6, horiz = T )
-    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-    #          labels = c(paste("E(", intToUtf8(0x03B4), "V)", sep=""), paste("E(", intToUtf8(0x03B4), "Vpeak)", sep="")) )
-    #     lines(x=c(0,8), y=c(0,0), lty=2 )
-    #   close.screen(3)      
-    #   
-    #   # plot up middle
-    #   screen(4)
-    #     Plot1 <- c( which( BoxPlot$metric == paste("sd(", intToUtf8(0x03B4), "V)", sep="") ),        # sd V   
-    #                 which( BoxPlot$metric == paste("sd(", intToUtf8(0x03B4), "Vpeak)", sep="") )     # sd Vpeak
-    #     ) 
-    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1],  xaxt='n',
-    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7), ylab = "[-]",
-    #             ylim = c(0, max(abs(BoxPlot$value[Plot1]))),
-    #             main = "A - variations among events")     # title of the pdf file
-    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-    #          labels=c(paste("sd(", intToUtf8(0x03B4), "V)", sep=""), paste("sd(", intToUtf8(0x03B4), "Vpeak)", sep="")) )
-    #     lines(x=c(0,8), y=c(0,0), lty=2)
-    #   close.screen(4) 
-    #   
-    #   # plot up right
-    #   screen(5)
-    #     Plot1 <- c( which( BoxPlot$metric == "reliab" ) )
-    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[%]",
-    #             col = c('white', 'gray80', 'gray30') , ylim = c(0, 100))
-    #     axis(side = 1, at = c(2), line = -0.8, lwd = 0,
-    #          labels=c("reliab") )
-    #   close.screen(5) 
-    #   
-    #   # plot down left
-    #   screen(6) 
-    #     Plot1 <- c( which( BoxPlot$metric ==  "E(NSE)" ),        
-    #                 which( BoxPlot$metric == "sd(NSE)" )     
-    #     )    
-    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[-]",,
-    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
-    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-    #          labels=c("E(NSE)", "sd(NSE)") )
-    #     lines(x=c(0,8), y=c(0,0), lty=2)
-    #   close.screen(6) 
-    #   
-    #   # plot down middle
-    #   screen(7) 
-    #     Plot1 <- c( which( BoxPlot$metric ==  "E(shift(Qmax))" ),        
-    #                 which( BoxPlot$metric == "sd(shift(Qmax))" )     
-    #     )    
-    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[h]",
-    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
-    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-    #          labels=c("E(shift(Qmax))", "sd(shift(Qmax))") )
-    #     lines(x=c(0,8), y=c(0,0), lty=2)
-    #   close.screen(7) 
-    #   
-    #   # plot down right
-    #   screen(8) 
-    #     Plot1 <- c( which( BoxPlot$metric == "relABW" ),        
-    #                 which( BoxPlot$metric == "relMIS" )     
-    #     )    
-    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[?]",
-    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
-    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-    #          labels=c("relABW", "relMIS") )
-    #     lines(x=c(0,8), y=c(0,0), lty=2)
-    #   close.screen(8) 
-    #   
-    # close.screen(all = TRUE)
-    # dev.off()
-    # 
-    # 
-    # # boxplots B (   E(dV)   vs   dV(E(Y))   )
-    # pdf( paste(pack.dir, "/00_Pre_", names(to.plot.list[[1]]$statistics)[ii], "_stats_bxpltB.pdf", sep="") , height = 6,  width = 7)
-    #   nValues <- length(to.plot.list[[1]]$statistics[[ii]]$boxplot.data[1,]) * 
-    #              length(to.plot.list[[1]]$statistics[[ii]]$boxplot.data[,1])    
-    #   BoxPlot <- data.frame(matrix(NA, ncol=3, nrow= nValues * length(to.plot.list)))
-    #   colnames(BoxPlot) <- c("value", "metric", "datSrc")
-    #   
-    #   for (i in 1:length(to.plot.list)) {
-    #     for (j in 1:length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[1,])) {
-    #       pos <- (i-1) * nValues + 
-    #         (j-1) * (length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,1])) + 
-    #         (1 : length(to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,1]))
-    #       BoxPlot$value [pos]  <- to.plot.list[[i]]$statistics[[ii]]$boxplot.data[,j]
-    #       BoxPlot$metric[pos]  <- colnames(to.plot.list[[i]]$statistics[[ii]]$boxplot.data)[j]
-    #       BoxPlot$datSrc[pos]  <- names(to.plot.list)[i]
-    #     }
-    #   }
-    #   
-    #   par(tcl=-0.5, family="serif", omi=c(0,0,0,0), cex.lab=0.8, cex.axis=0.7, cex.main=0.8,
-    #       mai=c(0.3, 0.5, 0.2, 0.1), mgp=c(1.3, 0.6, 0) )
-    #   split.screen(c(2, 1))       # splits display into two screens
-    #   split.screen(c(1, 3), screen = 1) # splits the top    half into 3
-    #   split.screen(c(1, 3), screen = 2) # splits the bottom half into 3
-    #   
-    #   # plot up left
-    #   screen(3) 
-    #     Plot1 <- c( which( BoxPlot$metric == paste("E(", intToUtf8(0x03B4), "V)", sep="") ),        # delta V
-    #                 which( BoxPlot$metric == paste("E(", intToUtf8(0x03B4), "Vpeak)", sep="") )     # delta Vpeak
-    #                )     
-    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n',
-    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7),  ylab = "[-]",
-    #             ylim = c(-max(abs(BoxPlot$value[Plot1])), max(abs(BoxPlot$value[Plot1]))) )
-    #     legend(x = "top", legend = names( to.plot.list)[order(names(to.plot.list))],
-    #            fill = c('white', 'gray80', 'gray30'), cex = 0.6, horiz = T )
-    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-    #          labels = c(paste("E(", intToUtf8(0x03B4), "V)", sep=""), paste("E(", intToUtf8(0x03B4), "Vpeak)", sep="")) )
-    #     lines(x=c(0,8), y=c(0,0), lty=2 )
-    #   close.screen(3)      
-    #   
-    #   # plot up middle
-    #   screen(4)
-    #     Plot1 <- c( which( BoxPlot$metric == paste(intToUtf8(0x03B4), "V(E(Y))", sep="") ),        # delta V(E(Y)
-    #                 which( BoxPlot$metric == paste(intToUtf8(0x03B4), "Vpeak(E(Y))", sep="") )     # delta Vpeak(E(Y)
-    #                ) 
-    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1],  xaxt='n',
-    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7), ylab = "[-]",
-    #             ylim = c(-max(abs(BoxPlot$value[Plot1])), max(abs(BoxPlot$value[Plot1]))),
-    #             main = "B - E(X) vs. X(E(Y))")     # title of the pdf file
-    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-    #          labels=c(paste(intToUtf8(0x03B4), "V(E(Y))", sep=""), paste(intToUtf8(0x03B4), "Vpeak(E(Y))", sep="")) )
-    #     lines(x=c(0,8), y=c(0,0), lty=2)
-    #   close.screen(4) 
-    #   
-    #   # plot up right
-    #   screen(5)
-    #     Plot1 <- c( which( BoxPlot$metric == "reliab" ) )
-    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[%]",
-    #             col = c('white', 'gray80', 'gray30') , ylim = c(0, 100))
-    #     axis(side = 1, at = c(2), line = -0.8, lwd = 0,
-    #          labels=c("reliab") )
-    #   close.screen(5) 
-    #   
-    #   # plot down left
-    #   screen(6) 
-    #     Plot1 <- c( which( BoxPlot$metric ==  "E(NSE)" ),        
-    #                 which( BoxPlot$metric == "NSE(E(Y))" )     
-    #     )    
-    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[-]",,
-    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
-    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-    #          labels=c("E(NSE)", "NSE(E(Y))") )
-    #     lines(x=c(0,8), y=c(0,0), lty=2)
-    #   close.screen(6) 
-    #   
-    #   # plot down middle
-    #   screen(7) 
-    #     Plot1 <- c( which( BoxPlot$metric ==  "E(shift(Qmax))" ),        
-    #                 which( BoxPlot$metric == "shift(Qmax(E(Y)))" )     
-    #     )    
-    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[h]",
-    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
-    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-    #          labels=c("E(shift(Qmax))", "shift(Qmax(E(Y)))") )
-    #     lines(x=c(0,8), y=c(0,0), lty=2)
-    #   close.screen(7) 
-    #   
-    #   # plot down right
-    #   screen(8) 
-    #     Plot1 <- c( which( BoxPlot$metric == "relABW" ),        
-    #                 which( BoxPlot$metric == "relMIS" )     
-    #     )    
-    #     boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n', ylab = "[?]",
-    #             col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7) )
-    #     axis(side = 1, at = c(2, 6), line = -0.8, lwd = 0,
-    #          labels=c("relABW", "relMIS") )
-    #     lines(x=c(0,8), y=c(0,0), lty=2)
-    #   close.screen(8) 
-    # 
-    # close.screen(all = TRUE)
-    # dev.off()
-    
-    
+
     # boxplots C  ( all iterations )
     pdf( paste(pack.dir, "/00_Pre_", names(to.plot.list[[1]]$statistics)[ii], "_stats_bxpltC.pdf", sep="") , height = 6,  width = 7)
       nValues <- length(to.plot.list[[1]]$statistics[[ii]]$all.iterations[1,]) * length(to.plot.list[[1]]$statistics[[ii]]$all.iterations[,1])    
