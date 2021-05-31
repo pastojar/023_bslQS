@@ -498,7 +498,10 @@ plot_stats <- function( stats, data_obs ) {
     
     for ( i_stat in colnames( stats$stats_qntl[[1]] ) ) {
       stats_ev <- stats$stats_qntl[[i_ev]] [ rownames(stats$stats_qntl[[i_ev]]) %in% as.character(seq(0.05, 0.95, 0.005)) , ]
-      assign( paste0( i_stat, "_ev" ) , stats_ev[ , i_stat ] )
+      
+      hlp <- stats_ev[ , i_stat ]
+      names(hlp) <- rownames( stats_ev )
+      assign( paste0( i_stat, "_ev" ) , hlp )
       
       if ( i_ev == 1 ) {
         assign( paste0( i_stat, "_all_ev" ) , eval( parse( text = paste0( i_stat, "_ev" ) ) ) ) 
@@ -517,43 +520,63 @@ plot_stats <- function( stats, data_obs ) {
     par( mar = c(1, 4, 1, 1), mfrow = c(4, 1), cex = 1.5 )
     
     for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
-      boxplot( eval( parse( text = paste0( i_stat, "_all_ev" ) ) ) ,
+      hlp <- eval( parse( text = paste0( i_stat, "_all_ev" ) ) )
+                   
+      boxplot( hlp ,
                ylab = i_stat ,
                range = 0  )
+      
+      boxplot( hlp[ names(hlp) == "0.05" ] ,
+               ylab = i_stat ,
+               range = 0, border = "blue", at = 0.62 , boxwex = 0.5 , 
+               add = TRUE )
+      
+      boxplot( hlp[ names(hlp) == "0.5" ] ,
+               ylab = i_stat ,
+               range = 0, border = "purple", at = 1,  boxwex = 0.5,
+               add = TRUE )
+      
+      boxplot( hlp[ names(hlp) == "0.95" ] ,
+               ylab = i_stat ,
+               range = 0, border = "red", at = 1.38, boxwex = 0.5 ,
+               add = TRUE )
     }
+    
+    
+    
   dev.off()
   
   
   #-----------------------------------------------
   
-  for ( i_ev in 1:length(stats$stats_it) ) {
-    
-    for ( i_stat in colnames( stats$stats_it[[1]] ) ) {
-      stats_ev <- stats$stats_it[[i_ev]] 
-      assign( paste0( i_stat, "_ev" ) , stats_ev[ , i_stat ] )
-      
-      if ( i_ev == 1 ) {
-        assign( paste0( i_stat, "_all_ev" ) , eval( parse( text = paste0( i_stat, "_ev" ) ) ) ) 
-      } else {
-        assign( paste0( i_stat, "_all_ev" ) , c( eval( parse( text = paste0( i_stat, "_all_ev" ) ) ), 
-                                                 eval( parse( text = paste0( i_stat, "_ev"     ) ) ) )   )
-      }
-      
-    }
-    
-  }
-  
-  png( paste0(out_dir, "/stats_it.png") ,
-       type="cairo", units = "in", width = 3, height = 5*4, res = 150 )
-  
-  par( mar = c(1, 4, 1, 1), mfrow = c(4, 1), cex = 1.5 )
-  
-  for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
-    boxplot( eval( parse( text = paste0( i_stat, "_all_ev" ) ) ) ,
-             ylab = i_stat ,
-             range = 0  )
-  }
-  dev.off()
+  # for ( i_ev in 1:length(stats$stats_it) ) {
+  #   
+  #   for ( i_stat in colnames( stats$stats_it[[1]] ) ) {
+  #     stats_ev <- stats$stats_it[[i_ev]] 
+  #     assign( paste0( i_stat, "_ev" ) , stats_ev[ , i_stat ] )
+  #     
+  #     if ( i_ev == 1 ) {
+  #       assign( paste0( i_stat, "_all_ev" ) , eval( parse( text = paste0( i_stat, "_ev" ) ) ) ) 
+  #     } else {
+  #       assign( paste0( i_stat, "_all_ev" ) , c( eval( parse( text = paste0( i_stat, "_all_ev" ) ) ), 
+  #                                                eval( parse( text = paste0( i_stat, "_ev"     ) ) ) )   )
+  #     }
+  #     
+  #   }
+  #   
+  # }
+  # 
+  # png( paste0(out_dir, "/stats_it.png") ,
+  #      type="cairo", units = "in", width = 3, height = 5*4, res = 150 )
+  # 
+  # par( mar = c(1, 4, 1, 1), mfrow = c(4, 1), cex = 1.5 )
+  # 
+  # for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
+  #   boxplot( eval( parse( text = paste0( i_stat, "_all_ev" ) ) ) ,
+  #            ylab = i_stat ,
+  #            range = 0  )
+  # }
+  # dev.off()
   
   return(TRUE)   
 }
