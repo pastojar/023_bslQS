@@ -371,10 +371,7 @@ devtools::load_all(".")
 #######################################
 ## plots the predicted model outputs
 check <- FALSE
-
-check <- plot_stats( stats = stats_Pre , data_obs = data_obs ) {
-  
-}
+check <- plot_hydro_stats( stats = stats_Pre , data_obs = data_obs, out_dir = out_dir )
 if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
 
 

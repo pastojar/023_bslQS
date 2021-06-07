@@ -492,91 +492,58 @@ CaPre.plot.new <- function( data_obs, data_mod, eventSet ) {
 #---------------------------------------------------------------------
 
 # plots statistics overview
-plot_stats <- function( stats, data_obs ) {
+plot_hydro_stats <- function( stats, data_obs, out_dir ) {
  
-  for ( i_ev in 1:length(stats$stats_qntl) ) {
-    
-    for ( i_stat in colnames( stats$stats_qntl[[1]] ) ) {
-      stats_ev <- stats$stats_qntl[[i_ev]] [ rownames(stats$stats_qntl[[i_ev]]) %in% as.character(seq(0.05, 0.95, 0.005)) , ]
-      
-      hlp <- stats_ev[ , i_stat ]
-      names(hlp) <- rownames( stats_ev )
-      assign( paste0( i_stat, "_ev" ) , hlp )
-      
-      if ( i_ev == 1 ) {
-        assign( paste0( i_stat, "_all_ev" ) , eval( parse( text = paste0( i_stat, "_ev" ) ) ) ) 
-      } else {
-        assign( paste0( i_stat, "_all_ev" ) , c( eval( parse( text = paste0( i_stat, "_all_ev" ) ) ), 
-                                                 eval( parse( text = paste0( i_stat, "_ev"     ) ) ) )   )
-      }
-      
+  for ( i_ev in 1:length(stats$stats_it) ) {
+  
+    if ( i_ev == 1 ) {
+      stats_it_mergedEv   <- stats$stats_it[[i_ev]]
+      stats_qntl_mergedEv <- data.frame( stats$stats_qntl[[i_ev]], qntl = rownames(stats$stats_qntl[[i_ev]]), stringsAsFactors = F )
+    } else {
+      stats_it_mergedEv   <- rbind( stats_it_mergedEv,   stats$stats_it[[i_ev]] )
+      stats_qntl_mergedEv <- rbind( stats_qntl_mergedEv, data.frame( stats$stats_qntl[[i_ev]], qntl = rownames(stats$stats_qntl[[i_ev]]), stringsAsFactors = F ) )
     }
     
   }
-  
-  png( paste0(out_dir, "/stats_qntl.png") ,
+
+  png( paste0(out_dir, "/stats.png") ,
        type="cairo", units = "in", width = 3, height = 5*4, res = 150 )
-  
+
     par( mar = c(1, 4, 1, 1), mfrow = c(4, 1), cex = 1.5 )
-    
+  
     for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
-      hlp <- eval( parse( text = paste0( i_stat, "_all_ev" ) ) )
-                   
-      boxplot( hlp ,
-               ylab = i_stat ,
-               range = 0  )
       
-      boxplot( hlp[ names(hlp) == "0.05" ] ,
-               ylab = i_stat ,
-               range = 0, border = "blue", at = 0.62 , boxwex = 0.5 , 
-               add = TRUE )
+      vioplot::vioplot( stats_it_mergedEv[, i_stat] ,
+                        ylab = i_stat ,
+                        plotCentre = "line", col = gray(0.7), range = 0 )
       
-      boxplot( hlp[ names(hlp) == "0.5" ] ,
-               ylab = i_stat ,
-               range = 0, border = "purple", at = 1,  boxwex = 0.5,
-               add = TRUE )
+      # lightens the distribution extremes
+      if ( i_stat %in% c("dV", "dQmax") ) {
+        polygon( c(0.5, 0.5, 1.5, 1.5),
+                 c( quantile(stats_it_mergedEv[, i_stat], c(0, 0.05)) ,
+                    rev( quantile(stats_it_mergedEv[, i_stat], c(0, 0.05)) ) ),
+                 col = rgb(1,1,1,0.6), border = NA )
+        polygon( c(0.5, 0.5, 1.5, 1.5),
+                 c( quantile(stats_it_mergedEv[, i_stat], c(0.95, 1)) ,
+                    rev( quantile(stats_it_mergedEv[, i_stat], c(0.95, 1)) ) ),
+                 col = rgb(1,1,1,0.6), border = NA )
+      } else {
+        polygon( c(0.5, 0.5, 1.5, 1.5),
+                 c( quantile(stats_it_mergedEv[, i_stat], c(0, 0.1)) ,
+                    rev( quantile(stats_it_mergedEv[, i_stat], c(0, 0.1)) ) ),
+                 col = rgb(1,1,1,0.6), border = NA )
+      }
       
-      boxplot( hlp[ names(hlp) == "0.95" ] ,
-               ylab = i_stat ,
-               range = 0, border = "red", at = 1.38, boxwex = 0.5 ,
-               add = TRUE )
+      # lines for median predictions
+      for ( i_ev in 1:length( stats_qntl_mergedEv[ stats_qntl_mergedEv$qntl == "0.5" , i_stat])  ) {
+        lines( x = c(0.9, 1.1) , 
+               y = rep( stats_qntl_mergedEv[ stats_qntl_mergedEv$qntl == "0.5" , i_stat] [i_ev] , 2) ,
+               col = "purple" )    
+      }
+      
     }
-    
-    
-    
+  
   dev.off()
-  
-  
-  #-----------------------------------------------
-  
-  # for ( i_ev in 1:length(stats$stats_it) ) {
-  #   
-  #   for ( i_stat in colnames( stats$stats_it[[1]] ) ) {
-  #     stats_ev <- stats$stats_it[[i_ev]] 
-  #     assign( paste0( i_stat, "_ev" ) , stats_ev[ , i_stat ] )
-  #     
-  #     if ( i_ev == 1 ) {
-  #       assign( paste0( i_stat, "_all_ev" ) , eval( parse( text = paste0( i_stat, "_ev" ) ) ) ) 
-  #     } else {
-  #       assign( paste0( i_stat, "_all_ev" ) , c( eval( parse( text = paste0( i_stat, "_all_ev" ) ) ), 
-  #                                                eval( parse( text = paste0( i_stat, "_ev"     ) ) ) )   )
-  #     }
-  #     
-  #   }
-  #   
-  # }
-  # 
-  # png( paste0(out_dir, "/stats_it.png") ,
-  #      type="cairo", units = "in", width = 3, height = 5*4, res = 150 )
-  # 
-  # par( mar = c(1, 4, 1, 1), mfrow = c(4, 1), cex = 1.5 )
-  # 
-  # for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
-  #   boxplot( eval( parse( text = paste0( i_stat, "_all_ev" ) ) ) ,
-  #            ylab = i_stat ,
-  #            range = 0  )
-  # }
-  # dev.off()
   
   return(TRUE)   
 }
