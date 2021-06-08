@@ -319,9 +319,25 @@ devtools::load_all(".")
 
 
 
+#########################################################
+## statistics of the predicted model outputs
+stats_Pre <- stats_inf( data_mod = res.LPre.bTr, data_obs = dataPre )
+
+
+
+#-------
+save.image( file = paste0(getwd(), "/outputs/", package, "_6uncer.Rdata") )
+#-------
+load( paste0( getwd(), "/outputs/bsl.QS_1cal.Rdata" ) )
+load( paste0( getwd(), "/outputs/bsl.QS_2rr.Rdata" ) )
+load( paste0( getwd(), "/outputs/bsl.QS_6uncer.Rdata" ) )
+devtools::load_all(".")
+#-------
+
+
 
 #########################################################
-## plots hydrographs for Ca events and Pre events
+## plots basic hydrographs for Ca events and Pre events
 pdf( paste(out_dir, "/5_hydrographs_Ca.pdf", sep="") , height = 6,  width = 7 , fonts = "Times")
 for ( i in 1 : length(dataPre) ) { 
   CaPre.plot.new( data_obs = dataCa[[i]], data_mod = res.LCa.bTr[[i]], eventSet = "Ca" )  
@@ -342,36 +358,11 @@ dev.off()
 
 
 
-#########################################################
-## statistics of the predicted model outputs
-
-# statistics_Ca  <- statist.CaPre.res( data_mod = res.LCa.bTr,  data_obs = dataCa, 
-#                                      skip = as.numeric(c()) )
-# statistics_Ca_as_Pre  <- statist.CaPre.res( data_mod = res.LCa.as.Pre.bTr,  data_obs = dataCa, 
-#                                             skip = as.numeric(c()) )
-# statistics_Pre <- statist.CaPre.res( data_mod = res.LPre.bTr, data_obs = dataPre, 
-#                                      skip = as.numeric(c()) )
-
-stats_Pre <- stats_inf( data_mod = res.LPre.bTr, data_obs = dataPre )
-
-
-
-#-------
-save.image( file = paste0(getwd(), "/outputs/", package, "_6uncer.Rdata") )
-#-------
-load( paste0( getwd(), "/outputs/bsl.QS_1cal.Rdata" ) )
-load( paste0( getwd(), "/outputs/bsl.QS_2rr.Rdata" ) )
-load( paste0( getwd(), "/outputs/bsl.QS_6uncer.Rdata" ) )
-devtools::load_all(".")
-#-------
- 
-
-
-
 #######################################
-## plots the predicted model outputs
+## plots hydrographs with performance statistics
 check <- FALSE
-check <- plot_hydro_stats( stats = stats_Pre , data_obs = data_obs, out_dir = out_dir )
+check <- plot_hydro_stats( data_obs = dataPre, data_mod = res.LPre.bTr, stats = stats_Pre, eventSet = "Pre",
+                           out_dir = out_dir )
 if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
 
 

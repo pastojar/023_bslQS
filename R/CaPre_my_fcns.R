@@ -142,11 +142,10 @@ CaPre.VerInd.Pre <- function(data_obs, data_mod) {
   o <- data_obs[1:nrow(data_obs),2]
   t.pre <- seq(1,length(o),by = 1)
  
-  up = data_mod[(row.names(data_mod)=="0.95"),]
-  lo = data_mod[(row.names(data_mod)=="0.05"),]
-  ob = o
-  Out <- matrix(c(lo,up,ob), ncol = length(ob), nrow = 3, byrow = T,
-                    dimnames = list(c("lo","up","ob"),paste("Q",round(t.pre, digits = 5),sep="_")) )
+  up <- data_mod[(row.names(data_mod)=="0.95"),]
+  lo <- data_mod[(row.names(data_mod)=="0.05"),]
+  ob <- o
+ 
   
   red_points <- red_points( obs = ob, up = up, lo = lo )
 
@@ -159,16 +158,13 @@ CaPre.VerInd.Pre <- function(data_obs, data_mod) {
   
   reliab <-  ( 1 - length(which(!is.na(red_points))) / length(avail.data) ) * 100  # prediction reliability [%]
   
-  ABW <- mean(up - lo)                 # Average Band Width
-  relABW <- as.numeric(ABW) / sd(ob)   # Average Band Width relative to standard deviation of observations
+  ABW <- mean(up - lo)                        # Average Band Width
+  normABW <- mean( (up - lo) / mean(ob) )     # Average Band Width normalized
   
-  QuSc.pre <- apply(Out, 2, quscore)     # Interval Scores
-  MIS <- mean( QuSc.pre , na.rm = TRUE)  # Mean of Interval Scores
-  relMIS <- MIS / sd(ob)                 # Mean of Interval Scores relative to standard deviation of observations
-  
-  MIS_ABW <- MIS / ABW        
-  
-  ret <- c( ABW = ABW, relABW = relABW, rlb.prcnt = reliab, MIS = MIS, relMIS = relMIS, MIS_ABW = MIS_ABW )
+  MIS <- MIS(low = lo, upp = up, obs = ob)          # Mean of Interval Scores
+  normMIS <- normMIS(low = lo, upp = up, obs = ob)  # Mean of Interval Scores normalized 
+ 
+  ret <- c( ABW = ABW, normABW = normABW, rlb.prcnt = reliab, MIS = MIS, normMIS = normMIS )
   return(ret)
 }
 
@@ -192,20 +188,34 @@ red_points <- function( obs, up, lo ) {
 
 #---------------------------------------------------------------------
 
-# compute quantile score as defined by Gneiting 2007, use input from a single time step as vector, 
-# use apply to evaluate time series ( res=apply(data,2,quscore,conf=0.05) )
-# conf = confidence level, corresponding to (1-conf)% interval
-quscore = function(x, conf=0.1) {
-  low=x[1] #lower bound
-  upp=x[2] #upper bound
-  obs=x[3] #observations
-  sh=upp-low #sharpness
-  undersh=(low-obs)*(low>obs)
-  oversh=(obs-upp)*(obs>upp)
-  score=sh+2/conf*(undersh+oversh)
-  return(score)
+# compute interval score as defined by Gneiting and Raftery (2007) and used by Breinholt et al. (2012), 
+MIS <-function ( low, upp, obs, conf = 0.1 ) {  #  0.1 ~ 90%
+  sh_vec <- upp-low   #sharpness
+  under <- (low-obs)*(low>obs)
+  over  <- (obs-upp)*(obs>upp)
+  
+  score <- sh_vec + 2/conf*(under+over)
+  
+  MIS <- mean( score , na.rm = TRUE)  
+  return(MIS)
 }
 
+# MIS normalized by the observations
+normMIS <-function ( low, upp, obs, conf = 0.1 ) {  #  0.1 ~ 90%   
+  sh_vec <- upp-low   #sharpness
+  sh_norm_vec <- sh_vec / mean(obs, na.rm = T)
+  
+  under <- (low-obs)*(low>obs)
+  under_norm <- under / mean(obs, na.rm = T)
+  
+  over  <- (obs-upp)*(obs>upp)
+  over_norm  <- over  / mean(obs, na.rm = T)
+  
+  score <- sh_norm_vec + 2/conf*(under_norm+over_norm)
+  
+  normMIS <- mean( score , na.rm = TRUE)  
+  return(normMIS)
+}
 
 #---------------------------------------------------------------------
 
@@ -492,8 +502,11 @@ CaPre.plot.new <- function( data_obs, data_mod, eventSet ) {
 #---------------------------------------------------------------------
 
 # plots statistics overview
-plot_hydro_stats <- function( stats, data_obs, out_dir ) {
+plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
  
+  
+  # OVERVIEW OF THE PERFORMANCE STATISTICS FOR ALL EVENTS TOGETHER
+  
   for ( i_ev in 1:length(stats$stats_it) ) {
   
     if ( i_ev == 1 ) {
@@ -506,7 +519,7 @@ plot_hydro_stats <- function( stats, data_obs, out_dir ) {
     
   }
 
-  png( paste0(out_dir, "/stats.png") ,
+  png( paste0(out_dir, "/7_stats_overview.png") ,
        type="cairo", units = "in", width = 3, height = 5*4, res = 150 )
 
     par( mar = c(1, 4, 1, 1), mfrow = c(4, 1), cex = 1.5 )
@@ -545,489 +558,630 @@ plot_hydro_stats <- function( stats, data_obs, out_dir ) {
   
   dev.off()
   
+  
+  # HYDROGRAPHS FOR INDIVIDUAL EVENTS WITH PERFORMANCE STATISTICS
+  
+  if ( eventSet == "Ca"  ) { L <- "L1" }
+  if ( eventSet == "Pre" ) { L <- "L2" }
+  
+  pdf( paste0(out_dir, "/6_hydro+stats.pdf"),
+       pointsize = 8, paper = "a4", height = 11.69 , width =  8.27, )
+  
+  layout( mat = matrix( c( 1,1,1,1,     1,1,1,1,
+                           6,6,6,6,     11,11,11,11,
+                           2,3,4,5,     7,8,9,10,
+                           16,16,16,16, 21,21,21,21,
+                           12,13,14,15, 17,18,19,20,
+                           26,26,26,26, 31,31,31,31,
+                           22,23,24,25, 27,28,29,30  ) ,
+                        nrow = 7, ncol =  8, byrow = T ), 
+          heights =  c(1,4,0.7,4,0.7,4,0.7) )
+  
+  
+  for ( i_ev in 1:length(data_obs) ) {
+    
+    if ( i_ev %% 6 == 1  ) {
+      par(mar = c(0,0,0,0))
+      plot.new()
+      legend("center", legend = c( "Q observed", "95% confidence interval of Q observed" ), lwd = 0.5,
+             ncol = 2, 
+             # lty = c( rep(1, length(mod.scens.to.plot_rain) + 1 ), 0 ),
+             # col = c(scen_colors$rain,
+             #         rgb(red = 0.2, green = 0.2, blue = 0.2, alpha = 0.99),
+             #         rgb(red = 0.6, green = 0.6, blue = 0.6, alpha = 0.5)  ),
+             # lwd = c( rep(0.7, length(mod.scens.to.plot_rain) + 1 ), NA),
+             # pch = c( rep(NA, length(mod.scens.to.plot_rain) + 1  ), 15 ), pt.cex = 2  
+             )
+    }
+
+    # plots stats
+    for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
+      
+      if ( i_stat %in% c("dV", "dQmax") ) { ylim <- c(-1, 1) }
+      if ( i_stat %in% c("NNSE") )        { ylim <- c(0.3,1) }
+      if ( i_stat %in% c("SCC") )         { ylim <- c(0,  1) }
+      
+      par(mar = c(2, 1.8, 0.2, 0.2))
+      vioplot::vioplot( stats$stats_it[[i_ev]][, i_stat] ,
+                        xlab = NA , yaxt = "n", axes = F, ylim = ylim, border = NA,
+                        plotCentre = "line", col = gray(0.6), range = 0, horizontal = T, lwd = 0.5 )
+      
+      # lightens the distribution extremes
+      if ( i_stat %in% c("dV", "dQmax") ) {
+        polygon( y = c(0.5, 0.5, 1.5, 1.5),
+                 x = c( quantile(stats$stats_it[[i_ev]][, i_stat], c(0, 0.05)) ,
+                        rev( quantile(stats$stats_it[[i_ev]][, i_stat], c(0, 0.05)) ) ),
+                 col = rgb(1,1,1,0.6), border = NA )
+        polygon( y = c(0.5, 0.5, 1.5, 1.5),
+                 x = c( quantile(stats$stats_it[[i_ev]][, i_stat], c(0.95, 1)) ,
+                        rev( quantile(stats$stats_it[[i_ev]][, i_stat], c(0.95, 1)) ) ),
+                 col = rgb(1,1,1,0.6), border = NA )
+      } else {
+        polygon( y = c(0.5, 0.5, 1.5, 1.5),
+                 x = c( quantile(stats$stats_it[[i_ev]][, i_stat], c(0, 0.1)) ,
+                        rev( quantile(stats$stats_it[[i_ev]][, i_stat], c(0, 0.1)) ) ),
+                 col = rgb(1,1,1,0.6), border = NA )
+      }
+      
+      # lines for median predictions
+      lines( y = c(0.9,1.1) , 
+             x = rep( stats$stats_qntl[[i_ev]][ "0.5" , i_stat], 2 ) ,
+             col = "purple" )    
+      
+      axis(1, lwd = 0.5); abline( h = 0.46, lwd = 0.5, )
+      if ( i_stat %in% c("dV", "dQmax") ) { abline( v = 0, lwd = 0.5, lty = "dashed") }
+      mtext(side = 2, line = 0, text = i_stat, cex = 0.8, )
+    }
+    
+    
+    # selects data for the event
+    data_obs_ev <- data_obs[[i_ev]]$Q_Data
+    data_mod_ev <- data_mod[[i_ev]]
+    
+    Qobs <- data_obs_ev[ , 2 ]
+    y    <- data_mod_ev[[ paste0("y.", L, ".quant") ]]
+    y_B  <- data_mod_ev[[ paste0("yplusB.", L, ".quant") ]]
+    Y    <- data_mod_ev[[ paste0("Y.", L, ".quant") ]]
+    timestep <- sysanal.decode( colnames(y) )[,2]    
+    timestep <- timestep - timestep[1] 
+    
+    # plots hydrographs
+    par(mar = c(3.2, 3.2, 3, 1))
+    plot( x = timestep, 
+          y = Qobs, 
+          type = "n", xaxt = "n", axes = F,
+          ylab = NA, xlab = NA, 
+          ylim = c( 0 , max( c( Y[(row.names(Y)=="0.95")] , Qobs ) ) ), )
+    box (lwd = 0.5); axis(side = 1, lwd = 0.5); axis(side = 2, lwd = 0.5)
+    
+    # axis(side = 1, labels = seq( 0, max(timestep), by = 2 ), 
+    #      at = seq( 0, max(timestep), by = 2 ) )
+    
+    title( paste0( names(data_obs)[i_ev], ",  Rmax10 = ",  
+                   uni.data$RG.overview$meanRain_Rmax10[ uni.data$RG.overview$id %in% names(data_obs) ] [match(names(data_obs)[i_ev], as.character(names(data_obs)))], " mm/h") ) 
+    
+    mtext(side = 2, line = 2, "Discharge [l/s]", cex = 0.8)
+    mtext(side = 1, line = 2, "Time [h]", cex = 0.8)
+    
+    polygon( c(timestep, rev( timestep)),
+             c(Y[(row.names(Y)=="0.05")],
+               rev(Y[(row.names(Y)=="0.95")])), #set the limits (1st and last quantiles)
+             col=gray(0.6), 
+             border=NA )
+    
+    # polygon( c(timestep,rev( timestep)),
+    #          c(y_B[(row.names(y_B)=="0.05")],
+    #            rev(y_B[(row.names(y_B)=="0.95")])), #set the limits (1st and last quantiles)
+    #          col=gray(0.5), 
+    #          border=NA )
+    # 
+    # polygon( c(timestep,rev( timestep)),
+    #          c(y[(row.names(y)=="0.05")],
+    #            rev(y[(row.names(y)=="0.95")])), #set the limits (1st and last quantiles)
+    #          # col=gray(0.8),
+    #          col = "magenta",
+    #          border=NA )
+    
+    # median predictions
+    lines( x = timestep, y = Y[(row.names(Y)=="0.5")], col = "purple")
+    
+    
+    red_points <- red_points( obs = Qobs, 
+                              up  = Y[(row.names(Y)=="0.95")], 
+                              lo  = Y[(row.names(Y)=="0.05")] )
+    blu_points <- Qobs
+    blu_points[ !is.na(red_points) ] <- NA
+    
+    points(x = timestep, y = blu_points, col="skyblue", pch = 1 )
+    points(x = timestep, y = red_points, col="red",     pch = 1 )
+    
+  }
+  dev.off()
+  
+  
   return(TRUE)   
 }
   
 
-#---------------------------------------------------------------------
-
-# plots statistics overview
-plot.Pre.res <- function( dataCa, dataPre, 
-                          bTr.Ca, bTr.Pre,
-                          pack.dir, statistics) {
-
-  for (ii in 1 : length(to.plot.list[[1]]$statistics)) {
-
-
-    # boxplots C  ( all iterations )
-    pdf( paste(pack.dir, "/00_Pre_", names(to.plot.list[[1]]$statistics)[ii], "_stats_bxpltC.pdf", sep="") , height = 6,  width = 7)
-      nValues <- length(to.plot.list[[1]]$statistics[[ii]]$all.iterations[1,]) * length(to.plot.list[[1]]$statistics[[ii]]$all.iterations[,1])    
-      BoxPlot <- data.frame(matrix(NA, ncol=3, nrow= nValues * length(to.plot.list)))
-      colnames(BoxPlot) <- c("value", "metric", "datSrc")
-      
-      reliab <- c()
-      for (i in 1:length(to.plot.list)) {
-        for (j in 1:length(to.plot.list[[i]]$statistics[[ii]]$all.iterations[1,])) {
-          pos <- (i-1) * nValues + 
-            (j-1) * (length(to.plot.list[[i]]$statistics[[ii]]$all.iterations[,1])) + 
-            (1 : length(to.plot.list[[i]]$statistics[[ii]]$all.iterations[,1]))
-          BoxPlot$value [pos]  <- to.plot.list[[i]]$statistics[[ii]]$all.iterations[,j]
-          BoxPlot$metric[pos]  <- colnames(to.plot.list[[i]]$statistics[[ii]]$all.iterations)[j]
-          BoxPlot$datSrc[pos]  <- names(to.plot.list)[i]
-        }
-        reliab[i] <- to.plot.list[[i]]$statistics[[ii]]$ret.all["reliab"]
-        names(reliab)[i] <- names(to.plot.list)[[i]]
-      }
-      
-      par(tcl=-0.5, family="serif", omi=c(0,0,0,0), cex.lab=0.8, cex.axis=0.7, cex.main=0.8,
-          mai=c(0.3, 0.5, 0.2, 0.1), mgp=c(1.3, 0.6, 0) )
-      split.screen(c(2, 1))       # splits display into two screens
-      split.screen(c(1, 2), screen = 2) # splits the bottom half into 2
-      
-      # plot up 
-      screen(1) 
-        Plot1 <- c( which( BoxPlot$metric == paste(intToUtf8(0x03B4), "V(Y)", sep="") ),          # delta V
-                    which( BoxPlot$metric == paste(intToUtf8(0x03B4), "Vpeak(Y)", sep="") ),      # delta Vpeak
-                    which( BoxPlot$metric == "NS(Y)")                                             # NSE
-                   )     
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n',
-                col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7, 9, 10, 11),  ylab = "[-]",
-                main = "C - all events and iterations",
-                outline = F  # no outlyers!
-                #ylim = c(-max(abs(BoxPlot$value[Plot1]), na.rm = T), max(abs(BoxPlot$value[Plot1]), na.rm = T)) 
-                )
-        legend(x = "top", legend = names( to.plot.list)[order(names(to.plot.list))],
-               fill = c('white', 'gray80', 'gray30'), cex = 0.6, horiz = T )
-        axis(side = 1, at = c(2, 6, 10), line = -0.8, lwd = 0,
-             labels = c(paste(intToUtf8(0x03B4), "V", sep=""), paste(intToUtf8(0x03B4), "Vpeak", sep=""), "NSE") )
-        lines(x=c(0,12), y=c(0,0), lty=2 )
-      close.screen(1)      
-      
-      # plot down left
-      screen(3)
-        Plot1 <- c( which( BoxPlot$metric == "shift(Qmax(Y))" ) )     
-        boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1],  xaxt='n',
-                col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3), ylab = "[h]", outline = F  # no outlyers!
-                )
-        axis(side = 1, at = c(2), line = -0.8, lwd = 0,
-             labels = c( "shift(Qmax(Y))" ) )
-        lines(x=c(0,4), y=c(0,0), lty=2)
-      close.screen(3) 
-      
-      # plot down right
-      screen(4)
-        barCenters <- barplot(height = as.matrix(reliab[order(names(reliab))]), 
-                              ylim = c(0,1), beside = T, space=0.2,
-                              border = "black", axes = TRUE, ylab = "[-]",
-                              col = c('white', 'gray80', 'gray30'),
-                              main = "reliability")
-      close.screen(4) 
-      
-    close.screen(all = TRUE)
-    dev.off()
-  
-  }  
-  
-  return(TRUE)
-}  
-
-
-#---------------------------------------------------------------------
-
-CaPre.plot.Pre <- function(plotdata1) {
-  timestepPre <- plotdata1$timestepPre;  
-  y_B.quant <- plotdata1$bct$bct.yplusB.L2.quant.Pre;  
-  y.quant   <- plotdata1$bct$bct.y.L2.quant.Pre; 
-  Y.quant   <- plotdata1$bct$bct.Y.L2.quant.Pre; Y.samp <- plotdata1$bct$bct.Y.L2.samp.Pre
-  bind.ret  <- plotdata1$bind.ret;  
-  VerInd    <- plotdata1$VerInd
-  transf <- plotdata1$transf
-  data.Pre <- plotdata1$data.Pre; out.data.Pre <- data.Pre[[2]]
-  
-  
-  par(mfrow=c(1,2), tcl=-0.5, family="serif", omi=c(0.2,0.2,0.1,0))
-  
-  # left plot
-  par(mai=c(0.4, 0.4, 0, 0))
-  plot(x = timestepPre, y = out.data.Pre[1:nrow(out.data.Pre),2], 
-       ylab = "Discharge [l/s]", xlab = "Timestep [h]",
-       ylim = c( 0 , max(Y.quant[(row.names(Y.quant)=="0.95")])*1.1 )
-      )
-  
-  polygon(c(timestepPre,rev(timestepPre)),
-          c(Y.quant[(row.names(Y.quant)=="0.05")],
-            rev(Y.quant[(row.names(Y.quant)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.1), border=NA)
-  
-  polygon(c(timestepPre,rev(timestepPre)),
-          c(y_B.quant[(row.names(y_B.quant)=="0.05")],
-            rev(y_B.quant[(row.names(y_B.quant)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.5), border=NA)
-  
-  polygon(c(timestepPre,rev(timestepPre)),
-          c(y.quant[(row.names(y.quant)=="0.05")],
-            rev(y.quant[(row.names(y.quant)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.8), border=NA)
-  
-  lines(x = timestepPre, y = apply(Y.samp, 2, mean), lty = "66")
-  
-  points(x = timestepPre, y = out.data.Pre[1:nrow(out.data.Pre),2], ylab = "Discharge", xlab = "Timestep", col="blue")
-  
-  points(x = timestepPre, y = VerInd[2,], col="red")
-  
-  legend("topright", inset=0.00, legend=plotdata1$data.source,
-         pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=0.8)
-  
-#   legend("topleft", legend = paste("90% quantiles for y+B+E (", 
-#                                    names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
-#                                    names(transf$par.tr[2]),"=", transf$par.tr[2], 
-#                                    "; Pre event ", 
+# #---------------------------------------------------------------------
 # 
-#   legend("topright", inset=.05, legend =c(paste("reliab = ", bind.ret$reliab, "%", sep=""),
-#                                           paste("ABW =", bind.ret$ABW), paste("ABW/sd =", bind.ret$relABW), 
-#                                           paste("MIS =", bind.ret$MIS), paste("MIS/sd =", bind.ret$relMIS)),   
-#          pch=c(NA, NA, NA),col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n",cex=1.2)
+# # plots statistics overview
+# plot.Pre.res <- function( dataCa, dataPre, 
+#                           bTr.Ca, bTr.Pre,
+#                           pack.dir, statistics) {
+# 
+#   for (ii in 1 : length(to.plot.list[[1]]$statistics)) {
+# 
+# 
+#     # boxplots C  ( all iterations )
+#     pdf( paste(pack.dir, "/00_Pre_", names(to.plot.list[[1]]$statistics)[ii], "_stats_bxpltC.pdf", sep="") , height = 6,  width = 7)
+#       nValues <- length(to.plot.list[[1]]$statistics[[ii]]$all.iterations[1,]) * length(to.plot.list[[1]]$statistics[[ii]]$all.iterations[,1])    
+#       BoxPlot <- data.frame(matrix(NA, ncol=3, nrow= nValues * length(to.plot.list)))
+#       colnames(BoxPlot) <- c("value", "metric", "datSrc")
+#       
+#       reliab <- c()
+#       for (i in 1:length(to.plot.list)) {
+#         for (j in 1:length(to.plot.list[[i]]$statistics[[ii]]$all.iterations[1,])) {
+#           pos <- (i-1) * nValues + 
+#             (j-1) * (length(to.plot.list[[i]]$statistics[[ii]]$all.iterations[,1])) + 
+#             (1 : length(to.plot.list[[i]]$statistics[[ii]]$all.iterations[,1]))
+#           BoxPlot$value [pos]  <- to.plot.list[[i]]$statistics[[ii]]$all.iterations[,j]
+#           BoxPlot$metric[pos]  <- colnames(to.plot.list[[i]]$statistics[[ii]]$all.iterations)[j]
+#           BoxPlot$datSrc[pos]  <- names(to.plot.list)[i]
+#         }
+#         reliab[i] <- to.plot.list[[i]]$statistics[[ii]]$ret.all["reliab"]
+#         names(reliab)[i] <- names(to.plot.list)[[i]]
+#       }
+#       
+#       par(tcl=-0.5, family="serif", omi=c(0,0,0,0), cex.lab=0.8, cex.axis=0.7, cex.main=0.8,
+#           mai=c(0.3, 0.5, 0.2, 0.1), mgp=c(1.3, 0.6, 0) )
+#       split.screen(c(2, 1))       # splits display into two screens
+#       split.screen(c(1, 2), screen = 2) # splits the bottom half into 2
+#       
+#       # plot up 
+#       screen(1) 
+#         Plot1 <- c( which( BoxPlot$metric == paste(intToUtf8(0x03B4), "V(Y)", sep="") ),          # delta V
+#                     which( BoxPlot$metric == paste(intToUtf8(0x03B4), "Vpeak(Y)", sep="") ),      # delta Vpeak
+#                     which( BoxPlot$metric == "NS(Y)")                                             # NSE
+#                    )     
+#         boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1], xaxt='n',
+#                 col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3, 5, 6, 7, 9, 10, 11),  ylab = "[-]",
+#                 main = "C - all events and iterations",
+#                 outline = F  # no outlyers!
+#                 #ylim = c(-max(abs(BoxPlot$value[Plot1]), na.rm = T), max(abs(BoxPlot$value[Plot1]), na.rm = T)) 
+#                 )
+#         legend(x = "top", legend = names( to.plot.list)[order(names(to.plot.list))],
+#                fill = c('white', 'gray80', 'gray30'), cex = 0.6, horiz = T )
+#         axis(side = 1, at = c(2, 6, 10), line = -0.8, lwd = 0,
+#              labels = c(paste(intToUtf8(0x03B4), "V", sep=""), paste(intToUtf8(0x03B4), "Vpeak", sep=""), "NSE") )
+#         lines(x=c(0,12), y=c(0,0), lty=2 )
+#       close.screen(1)      
+#       
+#       # plot down left
+#       screen(3)
+#         Plot1 <- c( which( BoxPlot$metric == "shift(Qmax(Y))" ) )     
+#         boxplot(BoxPlot$value[Plot1] ~ BoxPlot$datSrc[Plot1] + BoxPlot$metric[Plot1],  xaxt='n',
+#                 col = c('white', 'gray80', 'gray30'), at = c(1, 2, 3), ylab = "[h]", outline = F  # no outlyers!
+#                 )
+#         axis(side = 1, at = c(2), line = -0.8, lwd = 0,
+#              labels = c( "shift(Qmax(Y))" ) )
+#         lines(x=c(0,4), y=c(0,0), lty=2)
+#       close.screen(3) 
+#       
+#       # plot down right
+#       screen(4)
+#         barCenters <- barplot(height = as.matrix(reliab[order(names(reliab))]), 
+#                               ylim = c(0,1), beside = T, space=0.2,
+#                               border = "black", axes = TRUE, ylab = "[-]",
+#                               col = c('white', 'gray80', 'gray30'),
+#                               main = "reliability")
+#       close.screen(4) 
+#       
+#     close.screen(all = TRUE)
+#     dev.off()
 #   
-  # right plot
-  par(mai=c(0.2, 0.0, 0.2, 0.0))
-  plot.new()
-  legend("top", inset=0.00, pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1,
-         legend = c(paste("event ", substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), sep="")
-         )
-  )
-  legend("top", inset=0.1, pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=0.8, ncol=2,
-                                        # "NS(E(Y))"  "delta E(V)"     "delta E(Vpeak)" "MIS"
-         legend = c( " ", names(plotdata1$bind.ret[c(2, 5, 8, 9, 12, 19)]),
-                     plotdata1$data.source, plotdata1$bind.ret[c(2, 5, 8, 9, 12, 19)]
-         )
-  )
-  
-  mtext("Timestep [h]", side=1, outer=T, at=0.25)
-  mtext("Discharge [l/s]", side=2, outer=T, at=0.5)
-}
-
-#---------------------------------------------------------------------
-
-CaPre.plot.2.Pre <- function(plotdata1, plotdata2) {
-  
-  (if (plotdata1$data.Pre[[3]] == plotdata2$data.Pre[[3]]) 
-  {
-    data.Pre <- plotdata1$data.Pre; out.data.Pre <- data.Pre[[2]]
-  }
-  else {stop("event mismatch")}
-  )
-  
-  timestepPre1 <- plotdata1$timestepPre-plotdata1$timestepPre[1]; 
-  y_B.quant1   <- plotdata1$bct$bct.yplusB.L2.quant.Pre;  
-  y.quant1     <- plotdata1$bct$bct.y.L2.quant.Pre; 
-  Y.quant1     <- plotdata1$bct$bct.Y.L2.quant.Pre; 
-  Y.samp1      <- plotdata1$bct$bct.Y.L2.samp.Pre
-  bind.ret1    <- plotdata1$bind.ret;  
-  VerInd1      <- plotdata1$VerInd
-  transf1      <- plotdata1$transf
-  
-  timestepPre2 <- plotdata2$timestepPre-plotdata2$timestepPre[1]; 
-  y_B.quant2   <- plotdata2$bct$bct.yplusB.L2.quant.Pre;  
-  y.quant2     <- plotdata2$bct$bct.y.L2.quant.Pre; 
-  Y.quant2     <- plotdata2$bct$bct.Y.L2.quant.Pre; 
-  Y.samp2      <- plotdata2$bct$bct.Y.L2.samp.Pre
-  bind.ret2    <- plotdata2$bind.ret;  
-  VerInd2      <- plotdata2$VerInd
-  transf2      <- plotdata2$transf
-  
-  par(mfrow=c(1,2), tcl=-0.5, family="serif", omi=c(0.2,0.2,0.2,0))
-  
-  # plot left
-  par(mai=c(0.4,0.4,0.02,0))
-  
-  plot(x = timestepPre1, y = out.data.Pre[1:nrow(out.data.Pre),2], bty="o",
-       ylab = " ", xlab = " ",
-       xlim = c(0, floor(max(timestepPre1)+0.7)),
-       ylim = c(0 , max(Y.quant1[(row.names(Y.quant1)=="0.95")])*1.1 )
-  )
-  
-  polygon(c(timestepPre1,rev(timestepPre1)),
-          c(Y.quant1[(row.names(Y.quant1)=="0.05")],
-            rev(Y.quant1[(row.names(Y.quant1)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.1), border=NA)
-  
-  polygon(c(timestepPre1,rev(timestepPre1)),
-          c(y_B.quant1[(row.names(y_B.quant1)=="0.05")],
-            rev(y_B.quant1[(row.names(y_B.quant1)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.5), border=NA)
-  
-  polygon(c(timestepPre1,rev(timestepPre1)),
-          c(y.quant1[(row.names(y.quant1)=="0.05")],
-            rev(y.quant1[(row.names(y.quant1)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.8), border=NA)
-  
-  lines(x = timestepPre1, y = apply(Y.samp1, 2, mean), lty = "66")
-  
-  points(x = timestepPre1, y = out.data.Pre[1:nrow(out.data.Pre),2], ylab = "Discharge", xlab = "Timestep",  col="blue")
-  
-  points(x = timestepPre1, y = VerInd1[2,], col="red")
- 
-  legend("topright", inset=0.00, legend=plotdata3$data.source,       # legend, name of the rain data source 
-         pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1)
-  
-#   legend("topleft", legend = paste("90% quantiles for y+B+E (", 
-#                                    names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
-#                                    names(transf$par.tr[2]),"=", transf$par.tr[2], 
-#                                    "; Pre event ", 
-#                                    substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), ")", sep=""))
+#   }  
 #   
-#   legend("topright", inset=.05, legend =c(paste("reliab = ", bind.ret$reliab, "%", sep=""),
-#                                           paste("ABW =", bind.ret$ABW), paste("ABW/sd =", bind.ret$relABW), 
-#                                           paste("MIS =", bind.ret$MIS), paste("MIS/sd =", bind.ret$relMIS)),   
-#          pch=c(NA, NA, NA),col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n",cex=1.2)
-  
-  # plot right
-  par(mai=c(0.4,0.2,0.02,0.2))
-  
-  plot(x = timestepPre2, y = out.data.Pre[1:nrow(out.data.Pre),2], bty="o", yaxt="n",
-       ylab = " ", xlab = " ",
-       xlim = c(0, floor(max(timestepPre2)+0.7)),
-       ylim = c( 0 , max(Y.quant2[(row.names(Y.quant2)=="0.95")])*1.1 )
-  )
-  
-  polygon(c(timestepPre2,rev(timestepPre2)),
-          c(Y.quant2[(row.names(Y.quant2)=="0.05")],
-            rev(Y.quant2[(row.names(Y.quant2)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.1), border=NA)
-  
-  polygon(c(timestepPre2,rev(timestepPre2)),
-          c(y_B.quant2[(row.names(y_B.quant2)=="0.05")],
-            rev(y_B.quant2[(row.names(y_B.quant2)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.5), border=NA)
-  
-  polygon(c(timestepPre2,rev(timestepPre2)),
-          c(y.quant2[(row.names(y.quant2)=="0.05")],
-            rev(y.quant2[(row.names(y.quant2)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.8), border=NA)
-  
-  lines(x = timestepPre2, y = apply(Y.samp2, 2, mean), lty = "66")
-  
-  points(x = timestepPre2, y = out.data.Pre[1:nrow(out.data.Pre),2], ylab = "Discharge", xlab = "Timestep",  col="blue")
-  
-  points(x = timestepPre2, y = VerInd2[2,], col="red")
-  
-  legend("topright", inset=0.00, legend=plotdata3$data.source,
-         pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1)
-  
-#   legend("topleft", legend = paste("90% quantiles for y+B+E (", 
-#                                    names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
-#                                    names(transf$par.tr[2]),"=", transf$par.tr[2], 
-#                                    "; Pre event ", 
-#                                    substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), ")", sep=""))
+#   return(TRUE)
+# }  
+# 
+# 
+# #---------------------------------------------------------------------
+# 
+# CaPre.plot.Pre <- function(plotdata1) {
+#   timestepPre <- plotdata1$timestepPre;  
+#   y_B.quant <- plotdata1$bct$bct.yplusB.L2.quant.Pre;  
+#   y.quant   <- plotdata1$bct$bct.y.L2.quant.Pre; 
+#   Y.quant   <- plotdata1$bct$bct.Y.L2.quant.Pre; Y.samp <- plotdata1$bct$bct.Y.L2.samp.Pre
+#   bind.ret  <- plotdata1$bind.ret;  
+#   VerInd    <- plotdata1$VerInd
+#   transf <- plotdata1$transf
+#   data.Pre <- plotdata1$data.Pre; out.data.Pre <- data.Pre[[2]]
 #   
-#   legend("topright", inset=.05, legend =c(paste("reliab = ", bind.ret$reliab, "%", sep=""),
-#                                           paste("ABW =", bind.ret$ABW), paste("ABW/sd =", bind.ret$relABW), 
-#                                           paste("MIS =", bind.ret$MIS), paste("MIS/sd =", bind.ret$relMIS)),   
-#          pch=c(NA, NA, NA),col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n",cex=1.2)
-  
-  mtext("Timestep [h]", side=1, outer=T, at=0.5)
-  mtext("Discharge [l/s]", side=2, outer=T, at=0.5)
-  mtext(paste("event ", substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), sep=""),
-          side=3, outer=T, at=0.5)
- 
-}
-
-#---------------------------------------------------------------------
-
-CaPre.plot.3.Pre <- function(plotdata1, plotdata2, plotdata3) {
-  
-  (if ( (plotdata1$data.Pre[[3]] == plotdata2$data.Pre[[3]]) && (plotdata2$data.Pre[[3]] == plotdata3$data.Pre[[3]]) ) 
-  {
-    data.Pre <- plotdata1$data.Pre; out.data.Pre <- data.Pre[[2]]
-  }
-  else {stop("event mismatch")}
-  )
-  
-  timestepPre1 <- plotdata1$timestepPre-plotdata1$timestepPre[1]; 
-  y_B.quant1   <- plotdata1$bct$bct.yplusB.L2.quant.Pre;  
-  y.quant1     <- plotdata1$bct$bct.y.L2.quant.Pre; 
-  Y.quant1     <- plotdata1$bct$bct.Y.L2.quant.Pre; 
-  Y.samp1      <- plotdata1$bct$bct.Y.L2.samp.Pre
-  bind.ret1    <- plotdata1$bind.ret;  
-  VerInd1      <- plotdata1$VerInd
-  transf1      <- plotdata1$transf
-  
-  timestepPre2 <- plotdata2$timestepPre-plotdata2$timestepPre[1]; 
-  y_B.quant2   <- plotdata2$bct$bct.yplusB.L2.quant.Pre;  
-  y.quant2     <- plotdata2$bct$bct.y.L2.quant.Pre; 
-  Y.quant2     <- plotdata2$bct$bct.Y.L2.quant.Pre; 
-  Y.samp2      <- plotdata2$bct$bct.Y.L2.samp.Pre
-  bind.ret2    <- plotdata2$bind.ret;  
-  VerInd2      <- plotdata2$VerInd
-  transf2      <- plotdata2$transf
-  
-  timestepPre3 <- plotdata3$timestepPre-plotdata3$timestepPre[1]; 
-  y_B.quant3   <- plotdata3$bct$bct.yplusB.L2.quant.Pre;  
-  y.quant3     <- plotdata3$bct$bct.y.L2.quant.Pre; 
-  Y.quant3     <- plotdata3$bct$bct.Y.L2.quant.Pre; 
-  Y.samp3      <- plotdata3$bct$bct.Y.L2.samp.Pre
-  bind.ret3    <- plotdata3$bind.ret;  
-  VerInd3      <- plotdata3$VerInd
-  transf3      <- plotdata3$transf
-  
-  par(mfrow=c(2,2), tcl=-0.5, family="serif", omi=c(0.2,0.2,0.2,0))
-  
-  # plot up left 
-  par(mai=c(0.2, 0.4, 0.2, 0.1))
-  
-  plot(x = timestepPre1, y = out.data.Pre[1:nrow(out.data.Pre),2], bty="o", xaxt="n",
-       ylab = " ", xlab = " ",
-       xlim = c(0, floor(max(timestepPre1)+0.7)),
-       ylim = c(0 , max(c(Y.quant1[(row.names(Y.quant1)=="0.95")], Y.quant2[(row.names(Y.quant2)=="0.95")], 
-                          Y.quant3[(row.names(Y.quant3)=="0.95")], out.data.Pre[1:nrow(out.data.Pre),2]))
-                *1.05 )
-  )
-  
-  polygon(c(timestepPre1,rev(timestepPre1)),
-          c(Y.quant1[(row.names(Y.quant1)=="0.05")],
-            rev(Y.quant1[(row.names(Y.quant1)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.1), border=NA)
-  
-  polygon(c(timestepPre1,rev(timestepPre1)),
-          c(y_B.quant1[(row.names(y_B.quant1)=="0.05")],
-            rev(y_B.quant1[(row.names(y_B.quant1)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.5), border=NA)
-  
-  polygon(c(timestepPre1,rev(timestepPre1)),
-          c(y.quant1[(row.names(y.quant1)=="0.05")],
-            rev(y.quant1[(row.names(y.quant1)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.8), border=NA)
-  
-  lines(x = timestepPre1, y = apply(Y.samp1, 2, mean), lty = "66")
-  
-  points(x = timestepPre1, y = out.data.Pre[1:nrow(out.data.Pre),2], ylab = "Discharge", xlab = "Timestep",  col="blue")
-  
-  points(x = timestepPre1, y = VerInd1[2,], col="red")
-  
-  legend("topright", inset=0.00, legend =plotdata1$data.source,        # legend, name of the rain data source 
-         pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1)
-  
-  #   legend("topleft", legend = paste("90% quantiles for y+B+E (", 
-  #                                    names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
-  #                                    names(transf$par.tr[2]),"=", transf$par.tr[2], 
-  #                                    "; Pre event ", 
-  #                                    substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), ")", sep=""))
-  #   
-  #   legend("topright", inset=.05, legend =c(paste("reliab = ", bind.ret$reliab, "%", sep=""),
-  #                                           paste("ABW =", bind.ret$ABW), paste("ABW/sd =", bind.ret$relABW), 
-  #                                           paste("MIS =", bind.ret$MIS), paste("MIS/sd =", bind.ret$relMIS)),   
-  #          pch=c(NA, NA, NA),col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n",cex=1.2)
-  
-  # plot up right
-  par(mai=c(0.2, 0.0, 0.2, 0.0))
-  plot.new()
-  legend("top", inset=0.00, pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1.2,
-         legend = c(paste("event ", substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), sep="")
-         )
-  )
-  legend("top", inset=0.15, pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=0.8, ncol=4,
-         legend = c( " ", names(plotdata1$bind.ret[c(8, 9, 13, 14, 18, 19, 20, 21, 22, 24, 25)]),
-                     plotdata1$data.source, plotdata1$bind.ret[c(8, 9, 13, 14, 18, 19, 20, 21, 22, 24, 25)],
-                     plotdata2$data.source, plotdata2$bind.ret[c(8, 9, 13, 14, 18, 19, 20, 21, 22, 24, 25)],
-                     plotdata3$data.source, plotdata3$bind.ret[c(8, 9, 13, 14, 18, 19, 20, 21, 22, 24, 25)]
-         )
-  )             
-  
-  # plot down left
-  par(mai=c(0.4, 0.4, 0, 0.1))
-  
-  plot(x = timestepPre2, y = out.data.Pre[1:nrow(out.data.Pre),2], bty="o",
-       ylab = " ", xlab = " ",
-       xlim = c(0, floor(max(timestepPre2)+0.7)),
-       ylim = c(0 , max(c(Y.quant1[(row.names(Y.quant1)=="0.95")], Y.quant2[(row.names(Y.quant2)=="0.95")], 
-                          Y.quant3[(row.names(Y.quant3)=="0.95")], out.data.Pre[1:nrow(out.data.Pre),2]))
-                *1.05 )
-  )
-  
-  polygon(c(timestepPre2,rev(timestepPre2)),
-          c(Y.quant2[(row.names(Y.quant2)=="0.05")],
-            rev(Y.quant2[(row.names(Y.quant2)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.1), border=NA)
-  
-  polygon(c(timestepPre2,rev(timestepPre2)),
-          c(y_B.quant2[(row.names(y_B.quant2)=="0.05")],
-            rev(y_B.quant2[(row.names(y_B.quant2)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.5), border=NA)
-  
-  polygon(c(timestepPre2,rev(timestepPre2)),
-          c(y.quant2[(row.names(y.quant2)=="0.05")],
-            rev(y.quant2[(row.names(y.quant2)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.8), border=NA)
-  
-  lines(x = timestepPre2, y = apply(Y.samp2, 2, mean), lty = "66")
-  
-  points(x = timestepPre2, y = out.data.Pre[1:nrow(out.data.Pre),2], ylab = "Discharge", xlab = "Timestep",  col="blue")
-  
-  points(x = timestepPre2, y = VerInd2[2,], col="red")
-  
-  legend("topright", inset=0.00, legend=plotdata2$data.source,
-         pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1)
-  
-  #   legend("topleft", legend = paste("90% quantiles for y+B+E (", 
-  #                                    names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
-  #                                    names(transf$par.tr[2]),"=", transf$par.tr[2], 
-  #                                    "; Pre event ", 
-  #                                    substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), ")", sep=""))
-  #   
-  #   legend("topright", inset=.05, legend =c(paste("reliab = ", bind.ret$reliab, "%", sep=""),
-  #                                           paste("ABW =", bind.ret$ABW), paste("ABW/sd =", bind.ret$relABW), 
-  #                                           paste("MIS =", bind.ret$MIS), paste("MIS/sd =", bind.ret$relMIS)),   
-  #          pch=c(NA, NA, NA),col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n",cex=1.2)
-  
-  # plot down right
-  par(mai=c(0.4, 0.1, 0, 0.4))
-  
-  plot(x = timestepPre3, y = out.data.Pre[1:nrow(out.data.Pre),2], bty="o", yaxt="n",
-       ylab = " ", xlab = " ",
-       xlim = c(0, floor(max(timestepPre3)+0.7)),
-       ylim = c(0 , max(c(Y.quant1[(row.names(Y.quant1)=="0.95")], Y.quant2[(row.names(Y.quant2)=="0.95")], 
-                          Y.quant3[(row.names(Y.quant3)=="0.95")], out.data.Pre[1:nrow(out.data.Pre),2]))
-                *1.05 )
-  )
-  
-  polygon(c(timestepPre3,rev(timestepPre3)),
-          c(Y.quant3[(row.names(Y.quant3)=="0.05")],
-            rev(Y.quant3[(row.names(Y.quant3)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.1), border=NA)
-  
-  polygon(c(timestepPre3,rev(timestepPre3)),
-          c(y_B.quant3[(row.names(y_B.quant3)=="0.05")],
-            rev(y_B.quant3[(row.names(y_B.quant3)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.5), border=NA)
-  
-  polygon(c(timestepPre3,rev(timestepPre3)),
-          c(y.quant3[(row.names(y.quant3)=="0.05")],
-            rev(y.quant3[(row.names(y.quant3)=="0.95")])), #set the limits (1st and last quantiles)
-          col=gray(0.8), border=NA)
-  
-  lines(x = timestepPre3, y = apply(Y.samp3, 2, mean), lty = "66")
-  
-  points(x = timestepPre3, y = out.data.Pre[1:nrow(out.data.Pre),2], ylab = "Discharge", xlab = "Timestep",  col="blue")
-  
-  points(x = timestepPre3, y = VerInd3[2,], col="red")
-  
-  legend("topright", inset=0.00, legend=plotdata3$data.source,
-         pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1)
-  
-  #   legend("topleft", legend = paste("90% quantiles for y+B+E (", 
-  #                                    names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
-  #                                    names(transf$par.tr[2]),"=", transf$par.tr[2], 
-  #                                    "; Pre event ", 
-  #                                    substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), ")", sep=""))
-  #   
-  #   legend("topright", inset=.05, legend =c(paste("reliab = ", bind.ret$reliab, "%", sep=""),
-  #                                           paste("ABW =", bind.ret$ABW), paste("ABW/sd =", bind.ret$relABW), 
-  #                                           paste("MIS =", bind.ret$MIS), paste("MIS/sd =", bind.ret$relMIS)),   
-  #          pch=c(NA, NA, NA),col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n",cex=1.2)
-  
-  mtext("Timestep [h]", side=1, outer=T, at=0.5)
-  mtext("Discharge [l/s]", side=2, outer=T, at=0.5)
-  
-}
-
-#---------------------------------------------------------------------
+#   
+#   par(mfrow=c(1,2), tcl=-0.5, family="serif", omi=c(0.2,0.2,0.1,0))
+#   
+#   # left plot
+#   par(mai=c(0.4, 0.4, 0, 0))
+#   plot(x = timestepPre, y = out.data.Pre[1:nrow(out.data.Pre),2], 
+#        ylab = "Discharge [l/s]", xlab = "Timestep [h]",
+#        ylim = c( 0 , max(Y.quant[(row.names(Y.quant)=="0.95")])*1.1 )
+#       )
+#   
+#   polygon(c(timestepPre,rev(timestepPre)),
+#           c(Y.quant[(row.names(Y.quant)=="0.05")],
+#             rev(Y.quant[(row.names(Y.quant)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.1), border=NA)
+#   
+#   polygon(c(timestepPre,rev(timestepPre)),
+#           c(y_B.quant[(row.names(y_B.quant)=="0.05")],
+#             rev(y_B.quant[(row.names(y_B.quant)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.5), border=NA)
+#   
+#   polygon(c(timestepPre,rev(timestepPre)),
+#           c(y.quant[(row.names(y.quant)=="0.05")],
+#             rev(y.quant[(row.names(y.quant)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.8), border=NA)
+#   
+#   lines(x = timestepPre, y = apply(Y.samp, 2, mean), lty = "66")
+#   
+#   points(x = timestepPre, y = out.data.Pre[1:nrow(out.data.Pre),2], ylab = "Discharge", xlab = "Timestep", col="blue")
+#   
+#   points(x = timestepPre, y = VerInd[2,], col="red")
+#   
+#   legend("topright", inset=0.00, legend=plotdata1$data.source,
+#          pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=0.8)
+#   
+# #   legend("topleft", legend = paste("90% quantiles for y+B+E (", 
+# #                                    names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
+# #                                    names(transf$par.tr[2]),"=", transf$par.tr[2], 
+# #                                    "; Pre event ", 
+# # 
+# #   legend("topright", inset=.05, legend =c(paste("reliab = ", bind.ret$reliab, "%", sep=""),
+# #                                           paste("ABW =", bind.ret$ABW), paste("ABW/sd =", bind.ret$relABW), 
+# #                                           paste("MIS =", bind.ret$MIS), paste("MIS/sd =", bind.ret$relMIS)),   
+# #          pch=c(NA, NA, NA),col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n",cex=1.2)
+# #   
+#   # right plot
+#   par(mai=c(0.2, 0.0, 0.2, 0.0))
+#   plot.new()
+#   legend("top", inset=0.00, pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1,
+#          legend = c(paste("event ", substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), sep="")
+#          )
+#   )
+#   legend("top", inset=0.1, pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=0.8, ncol=2,
+#                                         # "NS(E(Y))"  "delta E(V)"     "delta E(Vpeak)" "MIS"
+#          legend = c( " ", names(plotdata1$bind.ret[c(2, 5, 8, 9, 12, 19)]),
+#                      plotdata1$data.source, plotdata1$bind.ret[c(2, 5, 8, 9, 12, 19)]
+#          )
+#   )
+#   
+#   mtext("Timestep [h]", side=1, outer=T, at=0.25)
+#   mtext("Discharge [l/s]", side=2, outer=T, at=0.5)
+# }
+# 
+# #---------------------------------------------------------------------
+# 
+# CaPre.plot.2.Pre <- function(plotdata1, plotdata2) {
+#   
+#   (if (plotdata1$data.Pre[[3]] == plotdata2$data.Pre[[3]]) 
+#   {
+#     data.Pre <- plotdata1$data.Pre; out.data.Pre <- data.Pre[[2]]
+#   }
+#   else {stop("event mismatch")}
+#   )
+#   
+#   timestepPre1 <- plotdata1$timestepPre-plotdata1$timestepPre[1]; 
+#   y_B.quant1   <- plotdata1$bct$bct.yplusB.L2.quant.Pre;  
+#   y.quant1     <- plotdata1$bct$bct.y.L2.quant.Pre; 
+#   Y.quant1     <- plotdata1$bct$bct.Y.L2.quant.Pre; 
+#   Y.samp1      <- plotdata1$bct$bct.Y.L2.samp.Pre
+#   bind.ret1    <- plotdata1$bind.ret;  
+#   VerInd1      <- plotdata1$VerInd
+#   transf1      <- plotdata1$transf
+#   
+#   timestepPre2 <- plotdata2$timestepPre-plotdata2$timestepPre[1]; 
+#   y_B.quant2   <- plotdata2$bct$bct.yplusB.L2.quant.Pre;  
+#   y.quant2     <- plotdata2$bct$bct.y.L2.quant.Pre; 
+#   Y.quant2     <- plotdata2$bct$bct.Y.L2.quant.Pre; 
+#   Y.samp2      <- plotdata2$bct$bct.Y.L2.samp.Pre
+#   bind.ret2    <- plotdata2$bind.ret;  
+#   VerInd2      <- plotdata2$VerInd
+#   transf2      <- plotdata2$transf
+#   
+#   par(mfrow=c(1,2), tcl=-0.5, family="serif", omi=c(0.2,0.2,0.2,0))
+#   
+#   # plot left
+#   par(mai=c(0.4,0.4,0.02,0))
+#   
+#   plot(x = timestepPre1, y = out.data.Pre[1:nrow(out.data.Pre),2], bty="o",
+#        ylab = " ", xlab = " ",
+#        xlim = c(0, floor(max(timestepPre1)+0.7)),
+#        ylim = c(0 , max(Y.quant1[(row.names(Y.quant1)=="0.95")])*1.1 )
+#   )
+#   
+#   polygon(c(timestepPre1,rev(timestepPre1)),
+#           c(Y.quant1[(row.names(Y.quant1)=="0.05")],
+#             rev(Y.quant1[(row.names(Y.quant1)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.1), border=NA)
+#   
+#   polygon(c(timestepPre1,rev(timestepPre1)),
+#           c(y_B.quant1[(row.names(y_B.quant1)=="0.05")],
+#             rev(y_B.quant1[(row.names(y_B.quant1)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.5), border=NA)
+#   
+#   polygon(c(timestepPre1,rev(timestepPre1)),
+#           c(y.quant1[(row.names(y.quant1)=="0.05")],
+#             rev(y.quant1[(row.names(y.quant1)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.8), border=NA)
+#   
+#   lines(x = timestepPre1, y = apply(Y.samp1, 2, mean), lty = "66")
+#   
+#   points(x = timestepPre1, y = out.data.Pre[1:nrow(out.data.Pre),2], ylab = "Discharge", xlab = "Timestep",  col="blue")
+#   
+#   points(x = timestepPre1, y = VerInd1[2,], col="red")
+#  
+#   legend("topright", inset=0.00, legend=plotdata3$data.source,       # legend, name of the rain data source 
+#          pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1)
+#   
+# #   legend("topleft", legend = paste("90% quantiles for y+B+E (", 
+# #                                    names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
+# #                                    names(transf$par.tr[2]),"=", transf$par.tr[2], 
+# #                                    "; Pre event ", 
+# #                                    substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), ")", sep=""))
+# #   
+# #   legend("topright", inset=.05, legend =c(paste("reliab = ", bind.ret$reliab, "%", sep=""),
+# #                                           paste("ABW =", bind.ret$ABW), paste("ABW/sd =", bind.ret$relABW), 
+# #                                           paste("MIS =", bind.ret$MIS), paste("MIS/sd =", bind.ret$relMIS)),   
+# #          pch=c(NA, NA, NA),col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n",cex=1.2)
+#   
+#   # plot right
+#   par(mai=c(0.4,0.2,0.02,0.2))
+#   
+#   plot(x = timestepPre2, y = out.data.Pre[1:nrow(out.data.Pre),2], bty="o", yaxt="n",
+#        ylab = " ", xlab = " ",
+#        xlim = c(0, floor(max(timestepPre2)+0.7)),
+#        ylim = c( 0 , max(Y.quant2[(row.names(Y.quant2)=="0.95")])*1.1 )
+#   )
+#   
+#   polygon(c(timestepPre2,rev(timestepPre2)),
+#           c(Y.quant2[(row.names(Y.quant2)=="0.05")],
+#             rev(Y.quant2[(row.names(Y.quant2)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.1), border=NA)
+#   
+#   polygon(c(timestepPre2,rev(timestepPre2)),
+#           c(y_B.quant2[(row.names(y_B.quant2)=="0.05")],
+#             rev(y_B.quant2[(row.names(y_B.quant2)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.5), border=NA)
+#   
+#   polygon(c(timestepPre2,rev(timestepPre2)),
+#           c(y.quant2[(row.names(y.quant2)=="0.05")],
+#             rev(y.quant2[(row.names(y.quant2)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.8), border=NA)
+#   
+#   lines(x = timestepPre2, y = apply(Y.samp2, 2, mean), lty = "66")
+#   
+#   points(x = timestepPre2, y = out.data.Pre[1:nrow(out.data.Pre),2], ylab = "Discharge", xlab = "Timestep",  col="blue")
+#   
+#   points(x = timestepPre2, y = VerInd2[2,], col="red")
+#   
+#   legend("topright", inset=0.00, legend=plotdata3$data.source,
+#          pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1)
+#   
+# #   legend("topleft", legend = paste("90% quantiles for y+B+E (", 
+# #                                    names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
+# #                                    names(transf$par.tr[2]),"=", transf$par.tr[2], 
+# #                                    "; Pre event ", 
+# #                                    substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), ")", sep=""))
+# #   
+# #   legend("topright", inset=.05, legend =c(paste("reliab = ", bind.ret$reliab, "%", sep=""),
+# #                                           paste("ABW =", bind.ret$ABW), paste("ABW/sd =", bind.ret$relABW), 
+# #                                           paste("MIS =", bind.ret$MIS), paste("MIS/sd =", bind.ret$relMIS)),   
+# #          pch=c(NA, NA, NA),col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n",cex=1.2)
+#   
+#   mtext("Timestep [h]", side=1, outer=T, at=0.5)
+#   mtext("Discharge [l/s]", side=2, outer=T, at=0.5)
+#   mtext(paste("event ", substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), sep=""),
+#           side=3, outer=T, at=0.5)
+#  
+# }
+# 
+# #---------------------------------------------------------------------
+# 
+# CaPre.plot.3.Pre <- function(plotdata1, plotdata2, plotdata3) {
+#   
+#   (if ( (plotdata1$data.Pre[[3]] == plotdata2$data.Pre[[3]]) && (plotdata2$data.Pre[[3]] == plotdata3$data.Pre[[3]]) ) 
+#   {
+#     data.Pre <- plotdata1$data.Pre; out.data.Pre <- data.Pre[[2]]
+#   }
+#   else {stop("event mismatch")}
+#   )
+#   
+#   timestepPre1 <- plotdata1$timestepPre-plotdata1$timestepPre[1]; 
+#   y_B.quant1   <- plotdata1$bct$bct.yplusB.L2.quant.Pre;  
+#   y.quant1     <- plotdata1$bct$bct.y.L2.quant.Pre; 
+#   Y.quant1     <- plotdata1$bct$bct.Y.L2.quant.Pre; 
+#   Y.samp1      <- plotdata1$bct$bct.Y.L2.samp.Pre
+#   bind.ret1    <- plotdata1$bind.ret;  
+#   VerInd1      <- plotdata1$VerInd
+#   transf1      <- plotdata1$transf
+#   
+#   timestepPre2 <- plotdata2$timestepPre-plotdata2$timestepPre[1]; 
+#   y_B.quant2   <- plotdata2$bct$bct.yplusB.L2.quant.Pre;  
+#   y.quant2     <- plotdata2$bct$bct.y.L2.quant.Pre; 
+#   Y.quant2     <- plotdata2$bct$bct.Y.L2.quant.Pre; 
+#   Y.samp2      <- plotdata2$bct$bct.Y.L2.samp.Pre
+#   bind.ret2    <- plotdata2$bind.ret;  
+#   VerInd2      <- plotdata2$VerInd
+#   transf2      <- plotdata2$transf
+#   
+#   timestepPre3 <- plotdata3$timestepPre-plotdata3$timestepPre[1]; 
+#   y_B.quant3   <- plotdata3$bct$bct.yplusB.L2.quant.Pre;  
+#   y.quant3     <- plotdata3$bct$bct.y.L2.quant.Pre; 
+#   Y.quant3     <- plotdata3$bct$bct.Y.L2.quant.Pre; 
+#   Y.samp3      <- plotdata3$bct$bct.Y.L2.samp.Pre
+#   bind.ret3    <- plotdata3$bind.ret;  
+#   VerInd3      <- plotdata3$VerInd
+#   transf3      <- plotdata3$transf
+#   
+#   par(mfrow=c(2,2), tcl=-0.5, family="serif", omi=c(0.2,0.2,0.2,0))
+#   
+#   # plot up left 
+#   par(mai=c(0.2, 0.4, 0.2, 0.1))
+#   
+#   plot(x = timestepPre1, y = out.data.Pre[1:nrow(out.data.Pre),2], bty="o", xaxt="n",
+#        ylab = " ", xlab = " ",
+#        xlim = c(0, floor(max(timestepPre1)+0.7)),
+#        ylim = c(0 , max(c(Y.quant1[(row.names(Y.quant1)=="0.95")], Y.quant2[(row.names(Y.quant2)=="0.95")], 
+#                           Y.quant3[(row.names(Y.quant3)=="0.95")], out.data.Pre[1:nrow(out.data.Pre),2]))
+#                 *1.05 )
+#   )
+#   
+#   polygon(c(timestepPre1,rev(timestepPre1)),
+#           c(Y.quant1[(row.names(Y.quant1)=="0.05")],
+#             rev(Y.quant1[(row.names(Y.quant1)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.1), border=NA)
+#   
+#   polygon(c(timestepPre1,rev(timestepPre1)),
+#           c(y_B.quant1[(row.names(y_B.quant1)=="0.05")],
+#             rev(y_B.quant1[(row.names(y_B.quant1)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.5), border=NA)
+#   
+#   polygon(c(timestepPre1,rev(timestepPre1)),
+#           c(y.quant1[(row.names(y.quant1)=="0.05")],
+#             rev(y.quant1[(row.names(y.quant1)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.8), border=NA)
+#   
+#   lines(x = timestepPre1, y = apply(Y.samp1, 2, mean), lty = "66")
+#   
+#   points(x = timestepPre1, y = out.data.Pre[1:nrow(out.data.Pre),2], ylab = "Discharge", xlab = "Timestep",  col="blue")
+#   
+#   points(x = timestepPre1, y = VerInd1[2,], col="red")
+#   
+#   legend("topright", inset=0.00, legend =plotdata1$data.source,        # legend, name of the rain data source 
+#          pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1)
+#   
+#   #   legend("topleft", legend = paste("90% quantiles for y+B+E (", 
+#   #                                    names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
+#   #                                    names(transf$par.tr[2]),"=", transf$par.tr[2], 
+#   #                                    "; Pre event ", 
+#   #                                    substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), ")", sep=""))
+#   #   
+#   #   legend("topright", inset=.05, legend =c(paste("reliab = ", bind.ret$reliab, "%", sep=""),
+#   #                                           paste("ABW =", bind.ret$ABW), paste("ABW/sd =", bind.ret$relABW), 
+#   #                                           paste("MIS =", bind.ret$MIS), paste("MIS/sd =", bind.ret$relMIS)),   
+#   #          pch=c(NA, NA, NA),col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n",cex=1.2)
+#   
+#   # plot up right
+#   par(mai=c(0.2, 0.0, 0.2, 0.0))
+#   plot.new()
+#   legend("top", inset=0.00, pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1.2,
+#          legend = c(paste("event ", substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), sep="")
+#          )
+#   )
+#   legend("top", inset=0.15, pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=0.8, ncol=4,
+#          legend = c( " ", names(plotdata1$bind.ret[c(8, 9, 13, 14, 18, 19, 20, 21, 22, 24, 25)]),
+#                      plotdata1$data.source, plotdata1$bind.ret[c(8, 9, 13, 14, 18, 19, 20, 21, 22, 24, 25)],
+#                      plotdata2$data.source, plotdata2$bind.ret[c(8, 9, 13, 14, 18, 19, 20, 21, 22, 24, 25)],
+#                      plotdata3$data.source, plotdata3$bind.ret[c(8, 9, 13, 14, 18, 19, 20, 21, 22, 24, 25)]
+#          )
+#   )             
+#   
+#   # plot down left
+#   par(mai=c(0.4, 0.4, 0, 0.1))
+#   
+#   plot(x = timestepPre2, y = out.data.Pre[1:nrow(out.data.Pre),2], bty="o",
+#        ylab = " ", xlab = " ",
+#        xlim = c(0, floor(max(timestepPre2)+0.7)),
+#        ylim = c(0 , max(c(Y.quant1[(row.names(Y.quant1)=="0.95")], Y.quant2[(row.names(Y.quant2)=="0.95")], 
+#                           Y.quant3[(row.names(Y.quant3)=="0.95")], out.data.Pre[1:nrow(out.data.Pre),2]))
+#                 *1.05 )
+#   )
+#   
+#   polygon(c(timestepPre2,rev(timestepPre2)),
+#           c(Y.quant2[(row.names(Y.quant2)=="0.05")],
+#             rev(Y.quant2[(row.names(Y.quant2)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.1), border=NA)
+#   
+#   polygon(c(timestepPre2,rev(timestepPre2)),
+#           c(y_B.quant2[(row.names(y_B.quant2)=="0.05")],
+#             rev(y_B.quant2[(row.names(y_B.quant2)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.5), border=NA)
+#   
+#   polygon(c(timestepPre2,rev(timestepPre2)),
+#           c(y.quant2[(row.names(y.quant2)=="0.05")],
+#             rev(y.quant2[(row.names(y.quant2)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.8), border=NA)
+#   
+#   lines(x = timestepPre2, y = apply(Y.samp2, 2, mean), lty = "66")
+#   
+#   points(x = timestepPre2, y = out.data.Pre[1:nrow(out.data.Pre),2], ylab = "Discharge", xlab = "Timestep",  col="blue")
+#   
+#   points(x = timestepPre2, y = VerInd2[2,], col="red")
+#   
+#   legend("topright", inset=0.00, legend=plotdata2$data.source,
+#          pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1)
+#   
+#   #   legend("topleft", legend = paste("90% quantiles for y+B+E (", 
+#   #                                    names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
+#   #                                    names(transf$par.tr[2]),"=", transf$par.tr[2], 
+#   #                                    "; Pre event ", 
+#   #                                    substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), ")", sep=""))
+#   #   
+#   #   legend("topright", inset=.05, legend =c(paste("reliab = ", bind.ret$reliab, "%", sep=""),
+#   #                                           paste("ABW =", bind.ret$ABW), paste("ABW/sd =", bind.ret$relABW), 
+#   #                                           paste("MIS =", bind.ret$MIS), paste("MIS/sd =", bind.ret$relMIS)),   
+#   #          pch=c(NA, NA, NA),col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n",cex=1.2)
+#   
+#   # plot down right
+#   par(mai=c(0.4, 0.1, 0, 0.4))
+#   
+#   plot(x = timestepPre3, y = out.data.Pre[1:nrow(out.data.Pre),2], bty="o", yaxt="n",
+#        ylab = " ", xlab = " ",
+#        xlim = c(0, floor(max(timestepPre3)+0.7)),
+#        ylim = c(0 , max(c(Y.quant1[(row.names(Y.quant1)=="0.95")], Y.quant2[(row.names(Y.quant2)=="0.95")], 
+#                           Y.quant3[(row.names(Y.quant3)=="0.95")], out.data.Pre[1:nrow(out.data.Pre),2]))
+#                 *1.05 )
+#   )
+#   
+#   polygon(c(timestepPre3,rev(timestepPre3)),
+#           c(Y.quant3[(row.names(Y.quant3)=="0.05")],
+#             rev(Y.quant3[(row.names(Y.quant3)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.1), border=NA)
+#   
+#   polygon(c(timestepPre3,rev(timestepPre3)),
+#           c(y_B.quant3[(row.names(y_B.quant3)=="0.05")],
+#             rev(y_B.quant3[(row.names(y_B.quant3)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.5), border=NA)
+#   
+#   polygon(c(timestepPre3,rev(timestepPre3)),
+#           c(y.quant3[(row.names(y.quant3)=="0.05")],
+#             rev(y.quant3[(row.names(y.quant3)=="0.95")])), #set the limits (1st and last quantiles)
+#           col=gray(0.8), border=NA)
+#   
+#   lines(x = timestepPre3, y = apply(Y.samp3, 2, mean), lty = "66")
+#   
+#   points(x = timestepPre3, y = out.data.Pre[1:nrow(out.data.Pre),2], ylab = "Discharge", xlab = "Timestep",  col="blue")
+#   
+#   points(x = timestepPre3, y = VerInd3[2,], col="red")
+#   
+#   legend("topright", inset=0.00, legend=plotdata3$data.source,
+#          pch=c(NA, NA, NA), col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n", cex=1)
+#   
+#   #   legend("topleft", legend = paste("90% quantiles for y+B+E (", 
+#   #                                    names(transf$par.tr[1]),"=", transf$par.tr[1], ", ",
+#   #                                    names(transf$par.tr[2]),"=", transf$par.tr[2], 
+#   #                                    "; Pre event ", 
+#   #                                    substr(data.Pre[[3]], nchar(data.Pre[[3]])-22, nchar(data.Pre[[3]])-4), ")", sep=""))
+#   #   
+#   #   legend("topright", inset=.05, legend =c(paste("reliab = ", bind.ret$reliab, "%", sep=""),
+#   #                                           paste("ABW =", bind.ret$ABW), paste("ABW/sd =", bind.ret$relABW), 
+#   #                                           paste("MIS =", bind.ret$MIS), paste("MIS/sd =", bind.ret$relMIS)),   
+#   #          pch=c(NA, NA, NA),col=c(1,rgb(69,22,198, maxColorValue = 255)),  bty = "n",cex=1.2)
+#   
+#   mtext("Timestep [h]", side=1, outer=T, at=0.5)
+#   mtext("Discharge [l/s]", side=2, outer=T, at=0.5)
+#   
+# }
+# 
+# #---------------------------------------------------------------------
