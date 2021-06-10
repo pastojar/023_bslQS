@@ -87,7 +87,7 @@ devtools::load_all(".")
 
 #######################################
 ## Defines the parameters and their initial values
-par.init.untr  <- c( sd.Eps_Q = 2,    # units of Q data, i.e. [l/s]
+par.init.untr  <- c( sd.Eps_Q = 2,      # units of Q data, i.e. [l/s]
                      sd.B_Q   = 0.001,  # units of Q data, i.e. [l/s]
                      corrlen  = 0.5 )   # [h]; same units as layout
 
@@ -100,8 +100,8 @@ lim.sx.ks_Q <- NA
 #######################################
 ## Defines prior parameter distributions
 pri.sd.untr    <- c( sd.Eps_Q = 2,              # units of Q data, i.e. [l/s]
-                     sd.B_Q   = 25,                                           # units of Q data, i.e. [l/s]
-                     corrlen  = 0.25  )            # [h]; same units as layout
+                     sd.B_Q   = 25,             # units of Q data, i.e. [l/s]
+                     corrlen  = 0.25  )         # [h]; same units as layout
 
 prior.pbdis <- list(
   sd.Eps_Q     = c( "NormalTrunc", par.init.untr["sd.Eps_Q"], pri.sd.untr["sd.Eps_Q"], 0.01, 100 ),   # units of Q data, i.e. [l/s]   
@@ -320,23 +320,6 @@ devtools::load_all(".")
 
 
 #########################################################
-## statistics of the predicted model outputs
-stats_Pre <- stats_inf( data_mod = res.LPre.bTr, data_obs = dataPre )
-
-
-
-#-------
-save.image( file = paste0(getwd(), "/outputs/", package, "_6uncer.Rdata") )
-#-------
-load( paste0( getwd(), "/outputs/bsl.QS_1cal.Rdata" ) )
-load( paste0( getwd(), "/outputs/bsl.QS_2rr.Rdata" ) )
-load( paste0( getwd(), "/outputs/bsl.QS_6uncer.Rdata" ) )
-devtools::load_all(".")
-#-------
-
-
-
-#########################################################
 ## plots basic hydrographs for Ca events and Pre events
 pdf( paste(out_dir, "/5_hydrographs_Ca.pdf", sep="") , height = 6,  width = 7 , fonts = "Times")
 for ( i in 1 : length(dataPre) ) { 
@@ -358,8 +341,30 @@ dev.off()
 
 
 
+#########################################################
+## statistics of the predicted model outputs
+stats_CaasPre <- stats_inf( data_mod = res.LCa.as.Pre.bTr, data_obs = dataCa )
+stats_Pre <- stats_inf( data_mod = res.LPre.bTr, data_obs = dataPre )
+
+
+
+#-------
+save.image( file = paste0(getwd(), "/outputs/", package, "_6uncer.Rdata") )
+#-------
+load( paste0( getwd(), "/outputs/bsl.QS_1cal.Rdata" ) )
+load( paste0( getwd(), "/outputs/bsl.QS_2rr.Rdata" ) )
+load( paste0( getwd(), "/outputs/bsl.QS_6uncer.Rdata" ) )
+devtools::load_all(".")
+#-------
+
+
+
 #######################################
 ## plots hydrographs with performance statistics
+check <- FALSE
+check <- plot_hydro_stats( data_obs = dataCa, data_mod = res.LCa.as.Pre.bTr, stats = stats_CaasPre, eventSet = "Pre",
+                           out_dir = out_dir )
+if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
 check <- FALSE
 check <- plot_hydro_stats( data_obs = dataPre, data_mod = res.LPre.bTr, stats = stats_Pre, eventSet = "Pre",
                            out_dir = out_dir )

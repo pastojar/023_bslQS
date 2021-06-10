@@ -161,10 +161,11 @@ CaPre.VerInd.Pre <- function(data_obs, data_mod) {
   ABW <- mean(up - lo)                        # Average Band Width
   normABW <- mean( (up - lo) / mean(ob) )     # Average Band Width normalized
   
-  MIS <- MIS(low = lo, upp = up, obs = ob)          # Mean of Interval Scores
-  normMIS <- normMIS(low = lo, upp = up, obs = ob)  # Mean of Interval Scores normalized 
+  MIS   <- MIS  (low = lo, upp = up, obs = ob)          # Mean of Interval Scores
+  MISS  <- MISS (low = lo, upp = up, obs = ob)          
+  NMISS <- nMISS(low = lo, upp = up, obs = ob)
  
-  ret <- c( ABW = ABW, normABW = normABW, rlb.prcnt = reliab, MIS = MIS, normMIS = normMIS )
+  ret <- c( ABW = ABW, normABW = normABW, rlb.prcnt = reliab, MIS = MIS, MISS = MISS, NMISS = NMISS )
   return(ret)
 }
 
@@ -188,33 +189,41 @@ red_points <- function( obs, up, lo ) {
 
 #---------------------------------------------------------------------
 
-# compute interval score as defined by Gneiting and Raftery (2007) and used by Breinholt et al. (2012), 
+# compute mean of the interval scores as defined by Gneiting and Raftery (2007) and used by Breinholt et al. (2012), 
 MIS <-function ( low, upp, obs, conf = 0.1 ) {  #  0.1 ~ 90%
   sh_vec <- upp-low   #sharpness
   under <- (low-obs)*(low>obs)
   over  <- (obs-upp)*(obs>upp)
   
-  score <- sh_vec + 2/conf*(under+over)
+  scores <- sh_vec + 2/conf*(under+over)
   
-  MIS <- mean( score , na.rm = TRUE)  
+  MIS <- mean( scores , na.rm = TRUE)  
   return(MIS)
 }
 
-# MIS normalized by the observations
-normMIS <-function ( low, upp, obs, conf = 0.1 ) {  #  0.1 ~ 90%   
-  sh_vec <- upp-low   #sharpness
-  sh_norm_vec <- sh_vec / mean(obs, na.rm = T)
+# MISS - Mean Interval Skill Score 
+MISS <-function ( low, upp, obs, conf = 0.1 ) {  #  0.1 ~ 90%   
   
-  under <- (low-obs)*(low>obs)
-  under_norm <- under / mean(obs, na.rm = T)
+  # standard MIS
+  MIS_stand <- MIS( low = low, upp = upp, obs = obs, conf = conf )
   
-  over  <- (obs-upp)*(obs>upp)
-  over_norm  <- over  / mean(obs, na.rm = T)
+  # reference MIS where the 90% (95%, 80%...) range of observations is used instead of the predicted intervals
+  MIS_ref <- MIS( low = rep( quantile( obs, conf/2 ),   length(obs) ) , 
+                  upp = rep( quantile( obs, 1-conf/2 ), length(obs) ) , 
+                  obs = obs, conf = conf )
   
-  score <- sh_norm_vec + 2/conf*(under_norm+over_norm)
+  MISS <- 1 - MIS_stand / MIS_ref   
+  return(MISS)
+}
+
+# NMISS - normalized Mean Interval Skill Score
+nMISS <-function ( low, upp, obs, conf = 0.1 ) {  #  0.1 ~ 90%   
   
-  normMIS <- mean( score , na.rm = TRUE)  
-  return(normMIS)
+  MISS <- MISS( low = low, upp = upp, obs = obs, conf = conf )
+  
+  nMISS <- 1 / ( 2 - MISS )
+  
+  return(nMISS)
 }
 
 #---------------------------------------------------------------------
@@ -285,171 +294,9 @@ stats_inf <- function( data_mod,  data_obs ) {
 } 
 
 
-# 
-# statist.CaPre.res <- function(data_mod, data_obs, skip) {   # skip - number of event ignored when calculating overall stats (ret.all)
-#   
-#   Y_quant <- names(data_mod[[1]])[ grepl("Y.L..quant", names(data_mod[[1]]) ) ]
-#   
-#   # Verification Indicies (ABW, reliab, MIS, red points)
-#   VerInd.statistics <- c("ABW", "relABW", "reliab", "MIS", "relMIS", "n.timesteps", "n.red_points")
-#   VerInd <- list();  VerInd.stat <-  data.frame(matrix(NA, ncol=length(VerInd.statistics), nrow=length(data_obs)))
-#   names(VerInd.stat) <- VerInd.statistics
-#   for (i in 1 : length(data_mod)) {
-#     hlp <- CaPre.VerInd.Pre(data_obs = data_obs[[i]][[2]], data_mod = data_mod[[i]][[Y_quant]])
-#     VerInd.stat[i,] <- as.numeric( c(hlp$ABW, hlp$relABW, hlp$reliab, hlp$MIS, hlp$relMIS, 
-#                                    length(hlp$red_points), length(which(is.na(hlp$red_points) == TRUE)) )
-#                                   )  
-#     VerInd[[i]] <- data.frame(matrix(NA, ncol=length(hlp$QuSc), nrow=2)); names(VerInd[[i]]) <- data_obs[[i]][[1]]
-#     VerInd[[i]][1,] <- hlp$QuSc; VerInd[[i]][2,] <- hlp$red_points
-#   }
-#   
-#   
-#   # NSE, Vtot and Vpeak
-#   my.stats   <- c("id", "NSE(E(Y))", "NSE(Y_95)", "NSE(Y_05)", 
-#                   
-#                   paste(intToUtf8(0x03B4), "V(E(Y))", sep=""), paste(intToUtf8(0x03B4), "V(Y_95)", sep=""), 
-#                                                                paste(intToUtf8(0x03B4), "V(Y_05)", sep=""),
-#                   
-#                   paste( "E(", intToUtf8(0x03B4), "V)", sep=""),  paste( "sd(", intToUtf8(0x03B4), "V)", sep=""),
-#                   
-#                   paste(intToUtf8(0x03B4), "Vpeak(E(Y))", sep=""), paste(intToUtf8(0x03B4), "Vpeak(Y_95)", sep=""), 
-#                                                                    paste(intToUtf8(0x03B4), "Vpeak(Y_05)", sep=""),
-#                   
-#                   paste( "E(", intToUtf8(0x03B4), "Vpeak)", sep=""),  paste( "sd(", intToUtf8(0x03B4), "Vpeak)", sep=""),
-#                   
-#                   "shift(Qmax(E(Y)))", "shift(Qmax(Y_95))", "shift(Qmax(Y_05))",
-#                   
-#                   paste( "E(shift(Qmax))", sep=""),  paste( "sd(shift(Qmax))", sep=""),
-#                   
-#                   paste( "E(NSE)", sep=""),  paste( "sd(NSE)", sep="") )
-#   
-#   ret <- data.frame(matrix(NA, ncol=length(my.stats), nrow=length(data_obs)))
-#   names(ret) <- my.stats
-#   
-#   for ( i in 1 : length(data_obs) ) {
-#     id <- substr( data_obs[[i]][[3]], nchar(data_obs[[i]][[3]])-22, nchar(data_obs[[i]][[3]])-4 ) # event id (starting time)
-#     
-#     bct <- data_mod[[i]]
-#     timestep  <- sysanal.decode( colnames( data_mod[[i]][[Y_quant]] ) )[,2]
-#     obs <- data_obs[[i]][[2]][,2]
-#     Vobs      <- Vtot (Qdata = obs, timestep = timestep)
-#     Vpeak.obs <- Vpeak(Qdata = obs, timestep = timestep)
-#     
-#     # statistics for all predicted data
-#     if (i==1) {
-#       my.stats.event <- c("NS(Y)", "V(Y)", "Vpeak(Y)", "shift(Qmax(Y))", 
-#                           paste(intToUtf8(0x03B4), "V(Y)", sep=""), paste(intToUtf8(0x03B4), "Vpeak(Y)", sep="") )
-#       event.table.all <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct[[Y_quant]][,1])*length(data_obs) ))
-#       names(event.table.all) <- my.stats.event
-#     }
-#     event.table <-  data.frame(matrix(NA, ncol=length(my.stats.event), nrow=length(bct[[Y_quant]][,1])))
-#     names(event.table) <- my.stats.event
-#     
-#     for (j in 1 : length(bct[[Y_quant]][,1]) ) {
-#       Qmod  <- bct[[Y_quant]][j,]
-#       
-#       NS     <- enesko(mod = Qmod, obs = obs)
-#       V      <- Vtot(Qdata = Qmod, timestep = timestep)
-#       Vpeak  <- Vpeak(Qdata = Qmod, timestep = timestep)
-#       shift  <- timestep[which(Qmod==max(Qmod))] - timestep[which(obs==max(obs))]; shift <- round( shift, 3)
-#       dV     <- round( (V - Vobs) / Vobs, 3 )
-#       dVpeak <- round( (Vpeak - Vpeak.obs) / Vpeak.obs, 3 )
-# 
-#       event.table[j,] <- c(NS, V, Vpeak, shift, dV, dVpeak)
-#     }
-#     
-#     ignore <- F
-#     if (length(skip) > 0 ) {          # checks whether to ignore the given event for the overall statistics  
-#       for (j in 1 : length(skip) ) {
-#         if (i == skip[j]) {
-#           ignore <- T
-#         }
-#       }  
-#     }
-#     if (ignore == F) {
-#       event.table.all[ ((i-1)*length(bct[[Y_quant]][,1]) + 1) : (i*length(bct[[Y_quant]][,1])), ] <- event.table
-#     }
-#     
-#     
-#     # statistics for E(Y), Y_05 and Y_95
-#     Qmod.med  <- bct[[Y_quant]][(row.names(bct[[Y_quant]])=="0.5"),]
-#     Qmod.95   <- bct[[Y_quant]][(row.names(bct[[Y_quant]])=="0.95"),]
-#     Qmod.05   <- bct[[Y_quant]][(row.names(bct[[Y_quant]])=="0.05"),]
-#     
-#     # NS efficiency
-#     NS.med <- enesko(mod = Qmod.med, obs = obs)
-#     NS.95   <- enesko(mod = Qmod.95, obs = obs)
-#     NS.05   <- enesko(mod = Qmod.05, obs = obs)
-#     
-#     # relative errors delta for total V
-#     Vmod.med <- Vtot(Qdata = Qmod.med, timestep = timestep)
-#     Vmod.95   <- Vtot(Qdata = Qmod.95  , timestep = timestep)
-#     Vmod.05   <- Vtot(Qdata = Qmod.05  , timestep = timestep)
-#     
-#     deltaV.med <-  round( (Vmod.med - Vobs) / Vobs, 3 )
-#     deltaV.95   <-  round( (Vmod.95   - Vobs) / Vobs, 3 )
-#     deltaV.05   <-  round( (Vmod.05   - Vobs) / Vobs, 3 )
-#     
-#     # relative errors delta for peak V
-#     Vpeak.mod.med <- Vpeak(Qdata = Qmod.med, timestep = timestep)
-#     Vpeak.mod.95   <- Vpeak(Qdata = Qmod.95  , timestep = timestep)
-#     Vpeak.mod.05   <- Vpeak(Qdata = Qmod.05  , timestep = timestep)
-#     
-#     deltaVpeak.med <-  round( (Vpeak.mod.med - Vpeak.obs) / Vpeak.obs, 3 )
-#     deltaVpeak.95   <-  round( (Vpeak.mod.95   - Vpeak.obs) / Vpeak.obs, 3 )
-#     deltaVpeak.05   <-  round( (Vpeak.mod.05   - Vpeak.obs) / Vpeak.obs, 3 )
-#     
-#     # Qmax time shifts
-#     shift.med <- time.shift(series1 = Qmod.med, series2 = obs, timestep = timestep)
-#     shift.95   <- time.shift(series1 = Qmod.95,   series2 = obs, timestep = timestep)
-#     shift.05   <- time.shift(series1 = Qmod.05,   series2 = obs, timestep = timestep)
-#     
-#     # interval scores for total V and peak V
-#     IS.V     <- quscore(x=c(Vmod.05, Vmod.95, Vobs), conf=0.1); IS.V <- round(IS.V, 0) # [l]
-#     IS.Vpeak <- quscore(x=c(Vpeak.mod.05, Vpeak.mod.95, Vpeak.obs), conf=0.1); IS.Vpeak <- round(IS.Vpeak, 0) # [l]
-#     
-#     
-#     ret[i,] <- c(id, NS.med, NS.95, NS.05, 
-#                  deltaV.med, deltaV.95, deltaV.05, 
-#                  round(mean(event.table[,5]), 3), round(sd(event.table[,5]), 3), # dV
-#                  deltaVpeak.med, deltaVpeak.95, deltaVpeak.05,
-#                  round(mean(event.table[,6]), 3), round(sd(event.table[,6]), 3), # dVpeak
-#                  shift.med, shift.95, shift.05,
-#                  round(mean(event.table[,4]), 3), round(sd(event.table[,4]), 3), # time shift
-#                  round(mean(event.table[,1]), 3), round(sd(event.table[,1]), 3)  # NS
-#     )
-#   }
-#   
-#   bind.ret <- cbind(ret, VerInd.stat)
-#   for (i in 2:length(bind.ret[1,])) {          # converts numeric values back to numeric
-#     bind.ret[,i] <- as.numeric(bind.ret[,i])
-#   }
-#   
-#   # E and sd for all events together; it is more informative to use the boxplot overview
-#   ret.all <- c(round(mean(event.table.all[,5], na.rm=T), 3), round(sd(event.table.all[,5], na.rm=T), 3),  # dV
-#                round(mean(event.table.all[,6], na.rm=T), 3), round(sd(event.table.all[,6], na.rm=T), 3),  # dVpeak
-#                round(mean(event.table.all[,4], na.rm=T), 3), round(sd(event.table.all[,4], na.rm=T), 3),  # time shift
-#                round(mean(event.table.all[,1], na.rm=T), 3), round(sd(event.table.all[,1], na.rm=T), 3), # NS
-#                round( sum(as.numeric(bind.ret$n.red_points[!1:length(bind.ret$n.red_points) %in% skip])) / 
-#                       sum(as.numeric(bind.ret$n.timesteps [!1:length(bind.ret$n.timesteps) %in% skip]))  , 3) # reliab
-#               )
-#   names(ret.all) <- c(my.stats[c(8, 9, 13, 14, 18, 19, 20, 21)], "reliab")
-#   
-#   # data for boxplots A and B
-#   boxplot.data <- (bind.ret[ , -c(1, 27, 28)])
-#   if (length(skip) > 0 ) {          # checks which events to ignore for the overall statistics  
-#     boxplot.data <- boxplot.data[-skip,]  
-#   }
-#   
-#   # data for boxplot C
-#   all.iterations <- event.table.all[, -c(2,3)]
-#   
-#   return(list(bind.ret = bind.ret, VerInd=VerInd, ret.all=ret.all, boxplot.data=boxplot.data, all.iterations=all.iterations))
-# }
-
-
 #---------------------------------------------------------------------
 
+# plots basic hydrographs
 CaPre.plot.new <- function( data_obs, data_mod, eventSet ) {
   
   out.data_obs <- data_obs[[2]]
@@ -501,7 +348,7 @@ CaPre.plot.new <- function( data_obs, data_mod, eventSet ) {
 
 #---------------------------------------------------------------------
 
-# plots statistics overview
+# plots hydrographs with statistics overview
 plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
  
   
@@ -520,40 +367,53 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
   }
 
   png( paste0(out_dir, "/7_stats_overview.png") ,
-       type="cairo", units = "in", width = 3, height = 5*4, res = 150 )
+       type="cairo", units = "in", width = 6*4, height = 2, res = 150 )
 
-    par( mar = c(1, 4, 1, 1), mfrow = c(4, 1), cex = 1.5 )
+    par( mar = c(2, 1, 1, 1), mfrow = c(1, 6), cex = 1.2 )
   
     for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
       
       vioplot::vioplot( stats_it_mergedEv[, i_stat] ,
-                        ylab = i_stat ,
-                        plotCentre = "line", col = gray(0.7), range = 0 )
+                        ylab = NA ,
+                        plotCentre = "line", col = gray(0.7), range = 0, horizontal = T )
+      mtext(side = 3, line = 0, text = i_stat, cex = 1.2)
       
       # lightens the distribution extremes
       if ( i_stat %in% c("dV", "dQmax") ) {
-        polygon( c(0.5, 0.5, 1.5, 1.5),
-                 c( quantile(stats_it_mergedEv[, i_stat], c(0, 0.05)) ,
-                    rev( quantile(stats_it_mergedEv[, i_stat], c(0, 0.05)) ) ),
-                 col = rgb(1,1,1,0.6), border = NA )
-        polygon( c(0.5, 0.5, 1.5, 1.5),
-                 c( quantile(stats_it_mergedEv[, i_stat], c(0.95, 1)) ,
-                    rev( quantile(stats_it_mergedEv[, i_stat], c(0.95, 1)) ) ),
-                 col = rgb(1,1,1,0.6), border = NA )
+        polygon( y = c(0.5, 0.5, 1.5, 1.5),
+                 x = c( quantile(stats_it_mergedEv[, i_stat], c(0, 0.05)) ,
+                        rev( quantile(stats_it_mergedEv[, i_stat], c(0, 0.05)) ) ),
+                 col = rgb(1,1,1,0.6), border = rgb(1,1,1,0.6) )
+        polygon( y = c(0.5, 0.5, 1.5, 1.5),
+                 x = c( quantile(stats_it_mergedEv[, i_stat], c(0.95, 1)) ,
+                        rev( quantile(stats_it_mergedEv[, i_stat], c(0.95, 1)) ) ),
+                 col = rgb(1,1,1,0.6), border = rgb(1,1,1,0.6) )
       } else {
-        polygon( c(0.5, 0.5, 1.5, 1.5),
-                 c( quantile(stats_it_mergedEv[, i_stat], c(0, 0.1)) ,
-                    rev( quantile(stats_it_mergedEv[, i_stat], c(0, 0.1)) ) ),
-                 col = rgb(1,1,1,0.6), border = NA )
+        polygon( y = c(0.5, 0.5, 1.5, 1.5),
+                 x = c( quantile(stats_it_mergedEv[, i_stat], c(0, 0.1)) ,
+                        rev( quantile(stats_it_mergedEv[, i_stat], c(0, 0.1)) ) ),
+                 col = rgb(1,1,1,0.6), border = rgb(1,1,1,0.6) )
       }
       
       # lines for median predictions
       for ( i_ev in 1:length( stats_qntl_mergedEv[ stats_qntl_mergedEv$qntl == "0.5" , i_stat])  ) {
-        lines( x = c(0.9, 1.1) , 
-               y = rep( stats_qntl_mergedEv[ stats_qntl_mergedEv$qntl == "0.5" , i_stat] [i_ev] , 2) ,
+        lines( y = c(0.9, 1.1) , 
+               x = rep( stats_qntl_mergedEv[ stats_qntl_mergedEv$qntl == "0.5" , i_stat] [i_ev] , 2) ,
                col = "purple" )    
       }
       
+    }
+    
+    labels <- c( "reliab.", "NMISS" ); names(labels) <- c( "rlb.prcnt", "NMISS" )
+    for ( i_stat in names(labels)  ) {
+      
+      if ( i_stat == "NMISS"   )   { ylim <- range(stats$stats_band[, i_stat]) }
+      if ( i_stat == "rlb.prcnt" ) { stats$stats_band[, i_stat] <- stats$stats_band[, i_stat] /100
+                                     ylim <- range(stats$stats_band[, i_stat]) }
+      
+      boxplot( stats$stats_band[, i_stat], range = 0, ylim = ylim,
+               col = gray(0.7), horizontal = T, ylab = NA )
+      mtext(side = 3, line = 0, text = labels[i_stat], cex = 1.2)
     }
   
   dev.off()
@@ -567,15 +427,19 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
   pdf( paste0(out_dir, "/6_hydro+stats.pdf"),
        pointsize = 8, paper = "a4", height = 11.69 , width =  8.27, )
   
-  layout( mat = matrix( c( 1,1,1,1,     1,1,1,1,
-                           6,6,6,6,     11,11,11,11,
-                           2,3,4,5,     7,8,9,10,
-                           16,16,16,16, 21,21,21,21,
-                           12,13,14,15, 17,18,19,20,
-                           26,26,26,26, 31,31,31,31,
-                           22,23,24,25, 27,28,29,30  ) ,
-                        nrow = 7, ncol =  8, byrow = T ), 
-          heights =  c(1,4,0.7,4,0.7,4,0.7) )
+  layout( mat = matrix( c( 1,1,1,     1,1,1,
+                           2,2,2,     9,9,9,
+                           3,4,5,     10,11,12,
+                           6,7,8,     13,14,15,
+                           16,16,16,  23,23,23,
+                           17,18,19,  24,25,26,
+                           20,21,22,  27,28,29,
+                           30,30,30,  37,37,37,
+                           31,32,33,  38,39,40,
+                           34,35,36,  41,42,43
+                          ) ,
+                        nrow = 10, ncol =  6, byrow = T ), 
+          heights =  c(1,4,0.6,0.6,4,0.6,0.6,4,0.6,0.6) )
   
   
   for ( i_ev in 1:length(data_obs) ) {
@@ -583,56 +447,21 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
     if ( i_ev %% 6 == 1  ) {
       par(mar = c(0,0,0,0))
       plot.new()
-      legend("center", legend = c( "Q observed", "95% confidence interval of Q observed" ), lwd = 0.5,
+      legend("center", x.intersp = 0.2, text.width = 0.25, box.lwd = 0.5,
+             legend = c( "Q observed - within predicted bounds", "Q observed - out of predicted bounds", 
+                         "Q predicted - median", "90% bounds (Q predicted or performance metrics)" ),
              ncol = 2, 
-             # lty = c( rep(1, length(mod.scens.to.plot_rain) + 1 ), 0 ),
-             # col = c(scen_colors$rain,
-             #         rgb(red = 0.2, green = 0.2, blue = 0.2, alpha = 0.99),
-             #         rgb(red = 0.6, green = 0.6, blue = 0.6, alpha = 0.5)  ),
-             # lwd = c( rep(0.7, length(mod.scens.to.plot_rain) + 1 ), NA),
-             # pch = c( rep(NA, length(mod.scens.to.plot_rain) + 1  ), 15 ), pt.cex = 2  
-             )
-    }
-
-    # plots stats
-    for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
-      
-      if ( i_stat %in% c("dV", "dQmax") ) { ylim <- c(-1, 1) }
-      if ( i_stat %in% c("NNSE") )        { ylim <- c(0.3,1) }
-      if ( i_stat %in% c("SCC") )         { ylim <- c(0,  1) }
-      
-      par(mar = c(2, 1.8, 0.2, 0.2))
-      vioplot::vioplot( stats$stats_it[[i_ev]][, i_stat] ,
-                        xlab = NA , yaxt = "n", axes = F, ylim = ylim, border = NA,
-                        plotCentre = "line", col = gray(0.6), range = 0, horizontal = T, lwd = 0.5 )
-      
-      # lightens the distribution extremes
-      if ( i_stat %in% c("dV", "dQmax") ) {
-        polygon( y = c(0.5, 0.5, 1.5, 1.5),
-                 x = c( quantile(stats$stats_it[[i_ev]][, i_stat], c(0, 0.05)) ,
-                        rev( quantile(stats$stats_it[[i_ev]][, i_stat], c(0, 0.05)) ) ),
-                 col = rgb(1,1,1,0.6), border = NA )
-        polygon( y = c(0.5, 0.5, 1.5, 1.5),
-                 x = c( quantile(stats$stats_it[[i_ev]][, i_stat], c(0.95, 1)) ,
-                        rev( quantile(stats$stats_it[[i_ev]][, i_stat], c(0.95, 1)) ) ),
-                 col = rgb(1,1,1,0.6), border = NA )
-      } else {
-        polygon( y = c(0.5, 0.5, 1.5, 1.5),
-                 x = c( quantile(stats$stats_it[[i_ev]][, i_stat], c(0, 0.1)) ,
-                        rev( quantile(stats$stats_it[[i_ev]][, i_stat], c(0, 0.1)) ) ),
-                 col = rgb(1,1,1,0.6), border = NA )
-      }
-      
-      # lines for median predictions
-      lines( y = c(0.9,1.1) , 
-             x = rep( stats$stats_qntl[[i_ev]][ "0.5" , i_stat], 2 ) ,
-             col = "purple" )    
-      
-      axis(1, lwd = 0.5); abline( h = 0.46, lwd = 0.5, )
-      if ( i_stat %in% c("dV", "dQmax") ) { abline( v = 0, lwd = 0.5, lty = "dashed") }
-      mtext(side = 2, line = 0, text = i_stat, cex = 0.8, )
+             lty = c( 0, 0, 1, 0 ),
+             col = c( "steelblue1",
+                      "firebrick1",
+                      "purple",
+                      gray(0.6) ),
+             lwd = c( NA, NA, 1, NA),
+             pch = c( 1, 1, NA, 15 ), pt.cex = c(1, 1, 1.5, 2) )
     }
     
+    
+    ### plots hydrographs
     
     # selects data for the event
     data_obs_ev <- data_obs[[i_ev]]$Q_Data
@@ -645,7 +474,7 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
     timestep <- sysanal.decode( colnames(y) )[,2]    
     timestep <- timestep - timestep[1] 
     
-    # plots hydrographs
+    # plots the hydrograph data
     par(mar = c(3.2, 3.2, 3, 1))
     plot( x = timestep, 
           y = Qobs, 
@@ -654,14 +483,12 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
           ylim = c( 0 , max( c( Y[(row.names(Y)=="0.95")] , Qobs ) ) ), )
     box (lwd = 0.5); axis(side = 1, lwd = 0.5); axis(side = 2, lwd = 0.5)
     
-    # axis(side = 1, labels = seq( 0, max(timestep), by = 2 ), 
-    #      at = seq( 0, max(timestep), by = 2 ) )
     
     title( paste0( names(data_obs)[i_ev], ",  Rmax10 = ",  
                    uni.data$RG.overview$meanRain_Rmax10[ uni.data$RG.overview$id %in% names(data_obs) ] [match(names(data_obs)[i_ev], as.character(names(data_obs)))], " mm/h") ) 
-    
     mtext(side = 2, line = 2, "Discharge [l/s]", cex = 0.8)
     mtext(side = 1, line = 2, "Time [h]", cex = 0.8)
+    
     
     polygon( c(timestep, rev( timestep)),
              c(Y[(row.names(Y)=="0.05")],
@@ -692,9 +519,69 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
     blu_points <- Qobs
     blu_points[ !is.na(red_points) ] <- NA
     
-    points(x = timestep, y = blu_points, col="skyblue", pch = 1 )
-    points(x = timestep, y = red_points, col="red",     pch = 1 )
+    points(x = timestep, y = blu_points, col="steelblue1", pch = 1 )
+    points(x = timestep, y = red_points, col="firebrick1",     pch = 1 )
     
+
+    ### plots stats
+    for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
+      
+      if ( i_stat %in% c("dV", "dQmax") ) { ylim <- c(-1, 1) }
+      if ( i_stat %in% c("NNSE") )        { ylim <- c(0.3,1) }
+      if ( i_stat %in% c("SCC") )         { ylim <- c(0,  1) }
+      
+      par(mar = c(2, 1.8, 0.2, 0.2))
+      vioplot::vioplot( stats$stats_it[[i_ev]][, i_stat] ,
+                        xlab = NA , yaxt = "n", axes = F, ylim = ylim, border = NA,
+                        plotCentre = "line", col = gray(0.6), range = 0, horizontal = T, lwd = 0.5 )
+      
+      # lightens the distribution extremes
+      if ( i_stat %in% c("dV", "dQmax") ) {
+        polygon( y = c(0.5, 0.5, 1.5, 1.5),
+                 x = c( quantile(stats$stats_it[[i_ev]][, i_stat], c(0, 0.05)) ,
+                        rev( quantile(stats$stats_it[[i_ev]][, i_stat], c(0, 0.05)) ) ),
+                 col = rgb(1,1,1,0.6), border = rgb(1,1,1,0.6) )
+        polygon( y = c(0.5, 0.5, 1.5, 1.5),
+                 x = c( quantile(stats$stats_it[[i_ev]][, i_stat], c(0.95, 1)) ,
+                        rev( quantile(stats$stats_it[[i_ev]][, i_stat], c(0.95, 1)) ) ),
+                 col = rgb(1,1,1,0.6), border = rgb(1,1,1,0.6) )
+      } else {
+        polygon( y = c(0.5, 0.5, 1.5, 1.5),
+                 x = c( quantile(stats$stats_it[[i_ev]][, i_stat], c(0, 0.1)) ,
+                        rev( quantile(stats$stats_it[[i_ev]][, i_stat], c(0, 0.1)) ) ),
+                 col = rgb(1,1,1,0.6), border = rgb(1,1,1,0.6) )
+      }
+      
+      # lines for median predictions
+      lines( y = c(0.8, 1.2) , 
+             x = rep( stats$stats_qntl[[i_ev]][ "0.5" , i_stat], 2 ) ,
+             col = "purple" )    
+      
+      # adds the axis and label
+      axis(1, lwd = 0.5); abline( h = 0.46, lwd = 0.5, )
+      if ( i_stat %in% c("dV", "dQmax") ) { abline( v = 0, lwd = 0.5, lty = "dashed") }
+      mtext(side = 2, line = 0, text = i_stat, cex = 0.8, )
+    }
+    
+    labels <- c( "reliab.", "NMISS" ); names(labels) <- c( "rlb.prcnt", "NMISS" )
+    for ( i_stat in names(labels)  ) {
+      
+      if ( i_stat == "NMISS"   )   { ylim <- range(stats$stats_band[, i_stat]) }
+      if ( i_stat == "rlb.prcnt" ) { # stats$stats_band[, i_stat] <- stats$stats_band[, i_stat] /100  # [%] --> [-]
+                                     ylim <- range(stats$stats_band[, i_stat]) }
+      
+      boxplot( stats$stats_band[, i_stat], horizontal = T, range = 0, ylim = ylim,
+               border = (gray(0.7)), axes = F, lwd = 0.7 )
+      axis(1, lwd = 0.5); abline( h = 0.46 , lwd = 0.5, )
+      mtext(side = 2, line = 0, text = labels[i_stat], cex = 0.8, )
+      
+      lines( y = c(0.65, 1.35) , 
+             x = rep( stats$stats_band[i_ev, i_stat] , 2) ,
+             col = "black" )
+      points( x = stats$stats_band[i_ev, i_stat],
+              y = 1, pch = 10,  col = "black", cex = 0.7  )
+    }
+
   }
   dev.off()
   
