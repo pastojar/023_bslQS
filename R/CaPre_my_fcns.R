@@ -365,7 +365,10 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
     }
     
   }
-
+  
+  ylim <- as.data.frame( matrix( nrow = 6,   c( c(-1, 1), c(-1, 1),  c(0.4, 1), c(0, 1), c(0.75, 1), c(0.4, 1) ) , byrow = T  ), 
+                         row.names = c("dV", "dQmax", "NNSE", "SCC", "rlb.prcnt", "NMISS") )
+  
   png( paste0(out_dir, "/7_stats_overview.png") ,
        type="cairo", units = "in", width = 6*4, height = 2, res = 150 )
 
@@ -374,9 +377,11 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
     for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
       
       vioplot::vioplot( stats_it_mergedEv[, i_stat] ,
-                        ylab = NA ,
+                        names = "", ylim = as.numeric(ylim[i_stat,]),
                         plotCentre = "line", col = gray(0.7), range = 0, horizontal = T )
       mtext(side = 3, line = 0, text = i_stat, cex = 1.2)
+      
+      if ( i_stat %in% c("dV", "dQmax") ) { abline( v = 0, lty = "dashed") }
       
       # lightens the distribution extremes
       if ( i_stat %in% c("dV", "dQmax") ) {
@@ -394,6 +399,7 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
                         rev( quantile(stats_it_mergedEv[, i_stat], c(0, 0.1)) ) ),
                  col = rgb(1,1,1,0.6), border = rgb(1,1,1,0.6) )
       }
+      box()
       
       # lines for median predictions
       for ( i_ev in 1:length( stats_qntl_mergedEv[ stats_qntl_mergedEv$qntl == "0.5" , i_stat])  ) {
@@ -407,11 +413,9 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
     labels <- c( "reliab.", "NMISS" ); names(labels) <- c( "rlb.prcnt", "NMISS" )
     for ( i_stat in names(labels)  ) {
       
-      if ( i_stat == "NMISS"   )   { ylim <- range(stats$stats_band[, i_stat]) }
-      if ( i_stat == "rlb.prcnt" ) { stats$stats_band[, i_stat] <- stats$stats_band[, i_stat] /100
-                                     ylim <- range(stats$stats_band[, i_stat]) }
+      if ( i_stat == "rlb.prcnt" ) { stats$stats_band[, i_stat] <- stats$stats_band[, i_stat] /100 }
       
-      boxplot( stats$stats_band[, i_stat], range = 0, ylim = ylim,
+      boxplot( stats$stats_band[, i_stat], range = 0, ylim = as.numeric(ylim[i_stat,]),
                col = gray(0.7), horizontal = T, ylab = NA )
       mtext(side = 3, line = 0, text = labels[i_stat], cex = 1.2)
     }
