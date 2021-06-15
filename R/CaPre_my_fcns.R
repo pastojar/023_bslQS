@@ -339,9 +339,12 @@ CaPre.plot.new <- function( data_obs, data_mod, eventSet ) {
   
   points(x =  timestep, y = out.data_obs[1:nrow(out.data_obs),2], col="blue")
   
-  VerInd <- CaPre.VerInd.Pre( data_obs = data_obs$Q_Data, data_mod = Y.quant )
-  points(x =  timestep, y = VerInd$red_points, col="red")
-
+  #VerInd <- CaPre.VerInd.Pre( data_obs = data_obs$Q_Data, data_mod = Y.quant )
+  red_points <- red_points( obs = data_obs$Q_Data[,2], 
+                            up  = Y.quant[(row.names(Y.quant)=="0.95")], 
+                            lo  = Y.quant[(row.names(Y.quant)=="0.05")] )
+  
+  points(x =  timestep, y = red_points, col="red")
   
 }
 
