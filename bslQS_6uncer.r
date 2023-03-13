@@ -41,9 +41,9 @@ for ( i_link in rownames(par_opt_all) ) {
 CML_Rain <- sup.rain.data( scens = scens )
 
 subset_choice <- list()
-subset_choice["arb-3-8-12-15"] <- paste( c(1, 6, 9, 12), collapse = "_" )    # CMLs # 3, 8, 12, 15
+subset_choice["arb-3-7-8-12-15"] <- paste( c(1, 5, 6, 9, 12), collapse = "_" )    # CMLs # 3, 7, 8, 12, 15
 
-myRain <- sup.rain.data( scens = paste0("CML_Rain__subcols_mean-which_cols-", subset_choice["arb-3-8-12-15"]) ,
+myRain <- sup.rain.data( scens = paste0("CML_Rain__subcols_mean-which_cols-", subset_choice["arb-3-7-8-12-15"]) ,
                          periods = periods )
 
 
@@ -87,7 +87,7 @@ devtools::load_all(".")
 
 #######################################
 ## Defines the parameters and their initial values
-par.init.untr  <- c( sd.Eps_Q = 2,      # units of Q data, i.e. [l/s]
+par.init.untr  <- c( sd.Eps_Q = 2,    # units of Q data, i.e. [l/s]
                      sd.B_Q   = 0.001,  # units of Q data, i.e. [l/s]
                      corrlen  = 0.5 )   # [h]; same units as layout
 
@@ -100,8 +100,8 @@ lim.sx.ks_Q <- NA
 #######################################
 ## Defines prior parameter distributions
 pri.sd.untr    <- c( sd.Eps_Q = 2,              # units of Q data, i.e. [l/s]
-                     sd.B_Q   = 25,             # units of Q data, i.e. [l/s]
-                     corrlen  = 0.25  )         # [h]; same units as layout
+                     sd.B_Q   = 25,                                           # units of Q data, i.e. [l/s]
+                     corrlen  = 0.25  )            # [h]; same units as layout
 
 prior.pbdis <- list(
   sd.Eps_Q     = c( "NormalTrunc", par.init.untr["sd.Eps_Q"], pri.sd.untr["sd.Eps_Q"], 0.01, 100 ),   # units of Q data, i.e. [l/s]   
@@ -202,7 +202,7 @@ neg.logposterior <- function(par) {
 ############################################################################## 
 ## RUNS CALIBRATION in 2 steps
 
-runs <- 10*c(5, 8, 2, 2)
+runs <- 1000*c(5, 8, 2, 2)
 seed <- 42
 set.seed(seed)
 
@@ -369,6 +369,21 @@ check <- FALSE
 check <- plot_hydro_stats( data_obs = dataPre, data_mod = res.LPre.bTr, stats = stats_Pre, eventSet = "Pre",
                            out_dir = out_dir )
 if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
+
+# most spatially variable rainfalls only
+RG_overview_Pre <- uni.data$RG.overview[ uni.data$RG.overview$id %in% eventIDsPre , ]
+eventIDs <- as.POSIXct( RG_overview_Pre$id , tz = "UTC")
+events_var60_3 <- which( RG_overview_Pre[ , "var_locNrem_60"] >= quantile( RG_overview_Pre[ , "var_locNrem_60" ], 0.66 ) ) 
+
+check <- FALSE
+check <- plot_hydro_stats( data_obs = dataPre[events_var60_3], data_mod = res.LPre.bTr[events_var60_3], 
+                           stats = list( stats_it   = stats_Pre[[1]][events_var60_3], 
+                                         stats_qntl = stats_Pre[[2]][events_var60_3], 
+                                         stats_band = stats_Pre[[3]][events_var60_3,] ), 
+                           eventSet = "Pre", 
+                           out_dir = out_dir )
+if (check==FALSE) { dev.off() } # closes graphic device if plotting fails
+
 
 
 

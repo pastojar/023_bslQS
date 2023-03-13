@@ -201,6 +201,7 @@ mergedRuno <- merge(mergedRuno, newRainCombdV_Q)
 subset_choice <- list()
 subset_choice["arb-3-4-7-8"] <- paste( c(1, 2, 5, 6), collapse = "_" )       # CMLs # 3, 4, 7, 8
 subset_choice["arb-3-4-7-8-15"] <- paste( c(1, 2, 5, 12), collapse = "_" )   # CMLs # 3, 4, 7, 8, 15
+subset_choice["arb-3-7-8-12-15"] <- paste( c(1, 5, 6, 9, 12), collapse = "_" ) # CMLs # 3, 7, 8, 12, 15
 subset_choice["arb-3-8-12-15"] <- paste( c(1, 6, 9, 12), collapse = "_" )    # CMLs # 3, 8, 12, 15
 subset_choice["arb-3-4-5-6-7-8"] <- paste( c(1,2,3,4,5,6), collapse = "_" )  # CMLs # 3, 4, 5, 6, 7, 8
 subset_choice["arb-length1"] <- paste( c(1, 2, 3, 4, 5), collapse = "_" )    # CMLs # 3, 4, 5, 6, 7

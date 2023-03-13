@@ -369,13 +369,13 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
     
   }
   
-  ylim <- as.data.frame( matrix( nrow = 6,   c( c(-1, 1), c(-1, 1),  c(0.4, 1), c(0, 1), c(0.75, 1), c(0.4, 1) ) , byrow = T  ), 
-                         row.names = c("dV", "dQmax", "NNSE", "SCC", "rlb.prcnt", "NMISS") )
+  ylim <- as.data.frame( matrix( nrow = 7,   c( c(-1, 1), c(-1, 1),  c(0.4, 1), c(0, 1), c(0.75, 1), c(0.5, 3), c(0.4, 1) ) , byrow = T  ), 
+                         row.names = c("dV", "dQmax", "NNSE", "SCC", "rlb.prcnt", "normABW", "NMISS") )
   
   png( paste0(out_dir, "/7_stats_overview.png") ,
        type="cairo", units = "in", width = 6*4, height = 2, res = 150 )
 
-    par( mar = c(2, 1, 1, 1), mfrow = c(1, 6), cex = 1.2 )
+    par( mar = c(2, 1, 1, 1), mfrow = c(1, 7), cex = 1.2 )
   
     for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
       
@@ -413,7 +413,7 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
       
     }
     
-    labels <- c( "reliab.", "NMISS" ); names(labels) <- c( "rlb.prcnt", "NMISS" )
+    labels <- c( "reliab.", "NABW", "NMISS" ); names(labels) <- c( "rlb.prcnt", "normABW", "NMISS" )
     for ( i_stat in names(labels)  ) {
       
       if ( i_stat == "rlb.prcnt" ) { stats$stats_band[, i_stat] <- stats$stats_band[, i_stat] /100 }
@@ -531,7 +531,7 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
     
 
     ### plots stats
-    for ( i_stat in c("dV", "dQmax", "NNSE", "SCC") ) {
+    for ( i_stat in c("dV", "SCC", "NNSE") ) {
       
       if ( i_stat %in% c("dV", "dQmax") ) { ylim <- c(-1, 1) }
       if ( i_stat %in% c("NNSE") )        { ylim <- c(0.3,1) }
@@ -570,12 +570,13 @@ plot_hydro_stats <- function( data_obs, data_mod, stats, eventSet, out_dir ) {
       mtext(side = 2, line = 0, text = i_stat, cex = 0.8, )
     }
     
-    labels <- c( "reliab.", "NMISS" ); names(labels) <- c( "rlb.prcnt", "NMISS" )
+    labels <- c( "reliab.", "NABW", "NMISS" ); names(labels) <- c( "rlb.prcnt", "normABW", "NMISS" )
     for ( i_stat in names(labels)  ) {
       
       if ( i_stat == "NMISS"   )   { ylim <- range(stats$stats_band[, i_stat]) }
       if ( i_stat == "rlb.prcnt" ) { # stats$stats_band[, i_stat] <- stats$stats_band[, i_stat] /100  # [%] --> [-]
                                      ylim <- range(stats$stats_band[, i_stat]) }
+      if ( i_stat == "normABW"   ) { ylim <- range(stats$stats_band[, i_stat]) }
       
       boxplot( stats$stats_band[, i_stat], horizontal = T, range = 0, ylim = ylim,
                border = (gray(0.7)), axes = F, lwd = 0.7 )

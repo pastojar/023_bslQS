@@ -16,8 +16,9 @@ load( paste0( getwd(), "/outputs/bsl.QS_3stats.Rdata" ) )
 
 refRain_Ca_name <- names(refRain_Ca)[3]
 if ( grepl( "aggregby-", refRain_Ca_name ) ) {
-  refRain_Ca_name <- sub( "aggregby-", "aggregbykeepLin-", refRain_Ca_name  )  
-} 
+  refRain_Ca_name <- sub( "aggregby-", "aggregbykeepLin-", refRain_Ca_name  )     # 60-min data actually used for the WAA calibration 
+  # refRain_Ca_name <- strsplit(refRain_Ca_name , "__")[[1]][1]                       # 1-min data
+}  
 # plot_name <- "Cal perLink - loc RGs mean - 60 min"
 
 

@@ -16,7 +16,8 @@ load( paste0( getwd(), "/outputs/bsl.QS_3stats.Rdata" ) )
 
 refRain_Ca_name <- names(refRain_Ca)[3]
 if ( grepl( "aggregby-", refRain_Ca_name ) ) {
-  refRain_Ca_name <- sub( "aggregby-", "aggregbykeepLin-", refRain_Ca_name  )  
+  refRain_Ca_name <- sub( "aggregby-", "aggregbykeepLin-", refRain_Ca_name  )     # 60-min data actually used for the WAA calibration 
+  # refRain_Ca_name <- strsplit(refRain_Ca_name , "__")[[1]][1]                       # 1-min data
 } 
 # plot_name <- "Cal perLink - loc RGs mean - 60 min"
 
@@ -24,7 +25,7 @@ if ( grepl( "aggregby-", refRain_Ca_name ) ) {
 #######################################
 ## loading external data
 ## and merging with the local data
-dir_ref <- "D:/OneDrive - České vysoké učení technické/sim_results/023_bslQS/023_bslQS_06_ref"
+dir_ref <- "F:/OneDrive - České vysoké učení technické v Praze/sim_results/023_bslQS/023_bslQS_06_ref"
 Rdata_name <- "bsl.QS_3stats.Rdata"
 load( file.path(dir_ref, Rdata_name) )
 
@@ -78,7 +79,7 @@ for ( i_cml in colnames(stats_to_plot$FlowData)[ 6:ncol(stats_to_plot$FlowData) 
       points( x = data_ij$Qobs ,
               y = data_ij[,i_cml] ,
               #pch = 16, cex = 0.4,
-              pch = 19, cex = 0.2,
+              pch = 19, cex = 0.5,
               col = myCols( n = round(nrow(event_col)*1.1) ) [ event_col$col[ rownames(event_col) %in% i_ev ]  ]
       )
     }
